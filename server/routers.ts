@@ -12,6 +12,7 @@ import * as botAI from "./botAI";
 import * as questSystem from "./questSystem";
 import * as highlightSystem from "./highlightSystem";
 import * as pornhubApiWrapper from "./pornhubApiWrapper";
+import * as pornhubClient from "./pornhubClient";
 import * as voiceChat from "./voiceChat";
 import * as lobbySystem from "./lobbySystem";
 import * as gameLogic from "./gameLogic";
@@ -236,6 +237,55 @@ export const appRouter = router({
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => {
         return highlightSystem.likeHighlight(input.id);
+      }),
+  }),
+
+  // Content - Real Pornhub API
+  content: router({
+    getCategories: publicProcedure.query(async () => {
+      try {
+        const categories = await pornhubClient.getCategories();
+        return { success: true, data: categories };
+      } catch (error) {
+        console.error("[Content] Failed to get categories:", error);
+        return { success: false, data: [] };
+      }
+    }),
+
+    getRandomVideos: publicProcedure
+      .input(z.object({ category: z.string().optional(), count: z.number().default(5) }))
+      .query(async ({ input }) => {
+        try {
+          const videos = await pornhubClient.getRandomVideos(input.category, input.count);
+          return { success: true, data: videos };
+        } catch (error) {
+          console.error("[Content] Failed to get random videos:", error);
+          return { success: false, data: [] };
+        }
+      }),
+
+    searchVideos: publicProcedure
+      .input(z.object({ query: z.string(), category: z.string().optional(), count: z.number().default(10) }))
+      .query(async ({ input }) => {
+        try {
+          const videos = await pornhubClient.searchVideos(input.query, input.category, input.count);
+          return { success: true, data: videos };
+        } catch (error) {
+          console.error("[Content] Failed to search videos:", error);
+          return { success: false, data: [] };
+        }
+      }),
+
+    getVideoById: publicProcedure
+      .input(z.object({ videoId: z.string() }))
+      .query(async ({ input }) => {
+        try {
+          const video = await pornhubClient.getVideoById(input.videoId);
+          return { success: true, data: video };
+        } catch (error) {
+          console.error("[Content] Failed to get video:", error);
+          return { success: false, data: null };
+        }
       }),
   }),
 

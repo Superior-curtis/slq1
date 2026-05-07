@@ -8,7 +8,9 @@ import { Loader2, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 
 export default function GameRoom(props: any = {}) {
-  const gameMode = props.gameMode || "picture";
+  const [location] = useLocation();
+  const modeFromUrl = location.split('/').pop() || 'picture';
+  const gameMode = (modeFromUrl === 'picture' || modeFromUrl === 'video') ? modeFromUrl : 'picture';
   const { user, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
   const [roomId, setRoomId] = useState<string | null>(null);

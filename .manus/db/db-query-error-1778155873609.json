@@ -1,0 +1,8 @@
+{
+  "query": "ALTER TABLE `contentCache` MODIFY COLUMN `actors` json NOT NULL DEFAULT json_array();\nALTER TABLE `contentCache` MODIFY COLUMN `categories` json NOT NULL DEFAULT json_array();\nALTER TABLE `contentCache` MODIFY COLUMN `correctAnswers` json NOT NULL DEFAULT json_array();\nALTER TABLE `gameHistory` MODIFY COLUMN `opponentIds` json NOT NULL DEFAULT json_array();\nALTER TABLE `gameRooms` MODIFY COLUMN `playerIds` json NOT NULL DEFAULT json_array();\nALTER TABLE `gameRooms` MODIFY COLUMN `playerScores` json NOT NULL DEFAULT json_object();",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Xy94q55wQDM4C6.9442bd3f3ca5 --database ErsCymCCXRtiKjfPUV3M2U --execute ALTER TABLE `contentCache` MODIFY COLUMN `actors` json NOT NULL DEFAULT json_array();\nALTER TABLE `contentCache` MODIFY COLUMN `categories` json NOT NULL DEFAULT json_array();\nALTER TABLE `contentCache` MODIFY COLUMN `correctAnswers` json NOT NULL DEFAULT json_array();\nALTER TABLE `gameHistory` MODIFY COLUMN `opponentIds` json NOT NULL DEFAULT json_array();\nALTER TABLE `gameRooms` MODIFY COLUMN `playerIds` json NOT NULL DEFAULT json_array();\nALTER TABLE `gameRooms` MODIFY COLUMN `playerScores` json NOT NULL DEFAULT json_object();",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1146 (42S02) at line 1: Table 'erscymccxrtikjfpuv3m2u.contentCache' doesn't exist"
+  ]
+}

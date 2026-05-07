@@ -1,5 +1,27 @@
 {
   "version": "7",
   "dialect": "mysql",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1778155628925,
+      "tag": "0000_sparkling_xavin",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1778155828416,
+      "tag": "0001_natural_network",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1778155864040,
+      "tag": "0002_open_ultragirl",
+      "breakpoints": true
+    }
+  ]
 }

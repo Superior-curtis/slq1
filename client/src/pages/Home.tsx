@@ -50,7 +50,7 @@ export default function Home() {
             {isAuthenticated ? (
               <>
                 <span className="text-sm text-gray-400">
-                  歡迎, {user?.name}
+                  Welcome, {user?.name}
                 </span>
                 <Link href="/notifications">
                   <Button variant="ghost" className="text-orange-500 hover:bg-orange-500/10">
@@ -59,14 +59,14 @@ export default function Home() {
                 </Link>
                 <Link href="/dashboard">
                   <Button variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-500/10">
-                    進入遊戲
+                    Enter Game
                   </Button>
                 </Link>
               </>
             ) : (
               <a href={getLoginUrl()}>
                 <Button className="bg-orange-500 hover:bg-orange-600 text-black font-bold">
-                  登入開始遊戲
+                  Login to Play
                 </Button>
               </a>
             )}
@@ -127,7 +127,7 @@ export default function Home() {
             variants={itemVariants}
             className="text-xl md:text-2xl text-gray-300 mb-8 max-w-2xl mx-auto"
           >
-            終極成人影片猜謎競技平台 · 即時多人對戰 · 全球排行榜爭霸
+            終極成人影片猜謎競技平台 · 即時多人對戰 · Global Leaderboard爭霸
           </motion.p>
 
           {/* CTA Buttons */}
@@ -140,14 +140,14 @@ export default function Home() {
                 <Link href="/game/picture">
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                     <Button className="bg-orange-500 hover:bg-orange-600 text-black font-bold px-8 py-6 text-lg">
-                      開始圖片模式
+                      開始Picture Mode
                     </Button>
                   </motion.div>
                 </Link>
                 <Link href="/game/video">
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                     <Button variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-500/10 px-8 py-6 text-lg">
-                      開始影片模式
+                      開始Video Mode
                     </Button>
                   </motion.div>
                 </Link>
@@ -156,7 +156,7 @@ export default function Home() {
               <a href={getLoginUrl()}>
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                   <Button className="bg-orange-500 hover:bg-orange-600 text-black font-bold px-8 py-6 text-lg">
-                    立即登入開始遊戲
+                    立即Login to Play
                   </Button>
                 </motion.div>
               </a>
@@ -203,13 +203,13 @@ export default function Home() {
           <div className="grid md:grid-cols-2 gap-8">
             {[
               {
-                title: "圖片模式",
-                description: "猜測成人影片截圖中的演員、片名等資訊",
+                title: "Picture Mode",
+                description: "Guess from adult video screenshots中的演員、片名等資訊",
                 icon: "🖼️",
               },
               {
-                title: "影片模式",
-                description: "觀看影片片段，挑戰您的知識與反應速度",
+                title: "Video Mode",
+                description: "Watch video clips，挑戰您的知識與反應速度",
                 icon: "🎬",
               },
               {

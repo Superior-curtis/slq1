@@ -14,8 +14,17 @@ export default function Dashboard() {
   });
 
   if (!isAuthenticated) {
-    navigate("/");
-    return null;
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-orange-400 mb-4">Access Denied</h1>
+          <p className="text-orange-300 mb-6">Please log in to access the dashboard</p>
+          <Button onClick={() => navigate("/")} className="bg-orange-500 hover:bg-orange-600 text-black">
+            Go to Home
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   const handleLogout = async () => {
@@ -50,7 +59,7 @@ export default function Dashboard() {
               className="border-red-500 text-red-500 hover:bg-red-500/10"
             >
               <LogOut className="w-4 h-4 mr-2" />
-              登出
+              Logout
             </Button>
           </div>
         </div>
@@ -65,7 +74,7 @@ export default function Dashboard() {
         >
           {/* Game Mode Selection */}
           <div className="md:col-span-2">
-            <h2 className="text-3xl font-bold mb-6 text-orange-500">選擇遊戲模式</h2>
+            <h2 className="text-3xl font-bold mb-6 text-orange-500">Select Game Mode</h2>
             <div className="grid md:grid-cols-2 gap-6">
               <Link href="/game/picture">
                 <motion.div
@@ -74,12 +83,12 @@ export default function Dashboard() {
                   className="bg-gradient-to-br from-orange-500/20 to-orange-500/5 border border-orange-500/30 rounded-lg p-8 cursor-pointer hover:border-orange-500/60 transition-colors"
                 >
                   <div className="text-5xl mb-4">🖼️</div>
-                  <h3 className="text-2xl font-bold mb-2">圖片模式</h3>
+                  <h3 className="text-2xl font-bold mb-2">Picture Mode</h3>
                   <p className="text-gray-400 mb-4">
-                    猜測成人影片截圖中的演員、片名等資訊
+                    Guess details from adult video screenshots
                   </p>
                   <Button className="bg-orange-500 hover:bg-orange-600 text-black font-bold w-full">
-                    開始遊戲
+                    Start Game
                   </Button>
                 </motion.div>
               </Link>
@@ -91,12 +100,12 @@ export default function Dashboard() {
                   className="bg-gradient-to-br from-orange-500/20 to-orange-500/5 border border-orange-500/30 rounded-lg p-8 cursor-pointer hover:border-orange-500/60 transition-colors"
                 >
                   <div className="text-5xl mb-4">🎬</div>
-                  <h3 className="text-2xl font-bold mb-2">影片模式</h3>
+                  <h3 className="text-2xl font-bold mb-2">Video Mode</h3>
                   <p className="text-gray-400 mb-4">
-                    觀看影片片段，挑戰您的知識與反應速度
+                    Watch video clips and test your knowledge
                   </p>
                   <Button className="bg-orange-500 hover:bg-orange-600 text-black font-bold w-full">
-                    開始遊戲
+                    Start Game
                   </Button>
                 </motion.div>
               </Link>
@@ -105,7 +114,7 @@ export default function Dashboard() {
 
           {/* Stats Sidebar */}
           <div>
-            <h2 className="text-3xl font-bold mb-6 text-orange-500">您的統計</h2>
+            <h2 className="text-3xl font-bold mb-6 text-orange-500">Your Stats</h2>
             {statsLoading ? (
               <div className="flex justify-center">
                 <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
@@ -113,27 +122,27 @@ export default function Dashboard() {
             ) : stats ? (
               <div className="space-y-4">
                 <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/30 p-4">
-                  <p className="text-gray-400 text-sm">總積分</p>
+                  <p className="text-gray-400 text-sm">Total Score</p>
                   <p className="text-3xl font-bold text-orange-400">{stats.totalScore}</p>
                 </Card>
 
                 <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/30 p-4">
-                  <p className="text-gray-400 text-sm">遊戲次數</p>
+                  <p className="text-gray-400 text-sm">Games Played</p>
                   <p className="text-3xl font-bold text-orange-400">{stats.gamesPlayed}</p>
                 </Card>
 
                 <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/30 p-4">
-                  <p className="text-gray-400 text-sm">勝利次數</p>
+                  <p className="text-gray-400 text-sm">Games Won</p>
                   <p className="text-3xl font-bold text-orange-400">{stats.gamesWon}</p>
                 </Card>
 
                 <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/30 p-4">
-                  <p className="text-gray-400 text-sm">勝率</p>
+                  <p className="text-gray-400 text-sm">Win Rate</p>
                   <p className="text-3xl font-bold text-orange-400">{stats.winRate}%</p>
                 </Card>
 
                 <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/30 p-4">
-                  <p className="text-gray-400 text-sm">正確率</p>
+                  <p className="text-gray-400 text-sm">Accuracy</p>
                   <p className="text-3xl font-bold text-orange-400">
                     {stats.totalAnswers > 0 ? ((stats.correctAnswers / stats.totalAnswers) * 100).toFixed(1) : 0}%
                   </p>
@@ -141,13 +150,13 @@ export default function Dashboard() {
 
                 <Link href="/leaderboard">
                   <Button className="w-full bg-orange-500 hover:bg-orange-600 text-black font-bold mt-4">
-                    查看排行榜
+                    View Leaderboard
                   </Button>
                 </Link>
 
                 <Link href="/profile">
                   <Button variant="outline" className="w-full border-orange-500 text-orange-500 hover:bg-orange-500/10">
-                    詳細資料
+                    Profile
                   </Button>
                 </Link>
               </div>

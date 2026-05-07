@@ -44,14 +44,14 @@ export default function Highlights() {
               className="border-orange-500 text-orange-500 hover:bg-orange-500/10"
               onClick={() => navigate("/lobby")}
             >
-              大廳
+              Lobby
             </Button>
             <Button
               variant="outline"
               className="border-orange-500 text-orange-500 hover:bg-orange-500/10"
               onClick={() => navigate("/leaderboard")}
             >
-              排行榜
+              Leaderboard
             </Button>
           </div>
         </div>
@@ -66,10 +66,10 @@ export default function Highlights() {
           className="mb-12"
         >
           <h1 className="text-5xl font-bold mb-4">
-            <span className="text-orange-500">精選</span>
-            <span className="text-white">重播</span>
+            <span className="text-orange-500">Featured</span>
+            <span className="text-white">Replays</span>
           </h1>
-          <p className="text-gray-400 text-lg">觀看過去最精彩刺激的遊戲對戰回合</p>
+          <p className="text-gray-400 text-lg">Watch the most exciting game battles from the past</p>
         </motion.div>
 
         {/* Tabs */}
@@ -99,7 +99,7 @@ export default function Highlights() {
             }`}
           >
             <TrendingUp className="w-5 h-5" />
-            熱門趨勢
+            Trending趨勢
           </Button>
         </motion.div>
 
@@ -192,7 +192,7 @@ export default function Highlights() {
             animate={{ opacity: 1 }}
             className="text-center py-12"
           >
-            <p className="text-gray-400 text-lg">暫無精選重播</p>
+            <p className="text-gray-400 text-lg">暫無FeaturedReplays</p>
           </motion.div>
         )}
       </div>

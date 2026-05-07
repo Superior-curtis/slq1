@@ -41,8 +41,17 @@ export default function Lobby() {
   };
 
   if (!isAuthenticated) {
-    navigate("/");
-    return null;
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-orange-400 mb-4">Access Denied</h1>
+          <p className="text-orange-300 mb-6">Please log in to access the lobby</p>
+          <Button onClick={() => navigate("/")} className="bg-orange-500 hover:bg-orange-600 text-black">
+            Go to Home
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -64,14 +73,14 @@ export default function Lobby() {
               className="border-orange-500 text-orange-500 hover:bg-orange-500/10"
               onClick={() => navigate("/dashboard")}
             >
-              遊戲大廳
+              Dashboard
             </Button>
             <Button
               variant="outline"
               className="border-orange-500 text-orange-500 hover:bg-orange-500/10"
               onClick={() => navigate("/leaderboard")}
             >
-              排行榜
+              Leaderboard
             </Button>
           </div>
         </div>
@@ -91,7 +100,7 @@ export default function Lobby() {
               <div className="border-b border-orange-500/20 p-4">
                 <h2 className="text-xl font-bold flex items-center gap-2">
                   <MessageCircle className="w-5 h-5 text-orange-500" />
-                  大廳聊天
+                  Global Lobby Chat
                 </h2>
               </div>
 
@@ -99,7 +108,7 @@ export default function Lobby() {
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {messages.length === 0 ? (
                   <div className="flex items-center justify-center h-full text-gray-500">
-                    <p>暫無訊息</p>
+                    <p>No messages yet</p>
                   </div>
                 ) : (
                   messages.map((msg: any, idx: number) => (
@@ -130,7 +139,7 @@ export default function Lobby() {
               <div className="border-t border-orange-500/20 p-4">
                 <div className="flex gap-2">
                   <Input
-                    placeholder="輸入訊息..."
+                    placeholder="Type a message..."
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
@@ -162,19 +171,19 @@ export default function Lobby() {
             <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/30 p-6">
               <h3 className="font-bold mb-4 flex items-center gap-2">
                 <Zap className="w-5 h-5 text-orange-500" />
-                大廳統計
+                Lobby Stats
               </h3>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-400">在線玩家</span>
+                  <span className="text-gray-400">Online Players</span>
                   <span className="text-2xl font-bold text-orange-400">{lobbyStats?.onlinePlayers || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-400">進行中遊戲</span>
+                  <span className="text-gray-400">Active Games</span>
                   <span className="text-2xl font-bold text-orange-400">{lobbyStats?.inGamePlayers || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-400">總遊戲數</span>
+                  <span className="text-gray-400">Total Games</span>
                   <span className="text-2xl font-bold text-orange-400">{lobbyStats?.totalGamesPlayed || 0}</span>
                 </div>
               </div>
@@ -184,7 +193,7 @@ export default function Lobby() {
             <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/30 p-6">
               <h3 className="font-bold mb-4 flex items-center gap-2">
                 <Users className="w-5 h-5 text-orange-500" />
-                頂級玩家
+                Top Players
               </h3>
               <div className="space-y-2">
                 {topPlayers?.map((player: any, idx: number) => (

@@ -1,11 +1,11 @@
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useState, useEffect } from "react";
-import { Loader2, Copy, Check, Send, Mic, MicOff } from "lucide-react";
+import { Loader2, Copy, Check, Send, Mic, MicOff, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
 
@@ -23,7 +23,6 @@ export default function GameRoom(props: any = {}) {
   const [gameType, setGameType] = useState<"random" | "bot" | "duel">("random");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [duelCode, setDuelCode] = useState<string>("");
-  const [showDuelInput, setShowDuelInput] = useState(false);
   
   // Game play state
   const [answer, setAnswer] = useState("");
@@ -51,11 +50,6 @@ export default function GameRoom(props: any = {}) {
   
   const createRoomMutation = trpc.game.createRoom.useMutation();
   const submitAnswerMutation = trpc.game.submitAnswer.useMutation();
-
-  if (!isAuthenticated) {
-    navigate("/");
-    return null;
-  }
 
   // Timer effect - 只在遊戲進行中且未顯示答案時運行
   useEffect(() => {
@@ -99,11 +93,11 @@ export default function GameRoom(props: any = {}) {
               setRoomCode(data.roomCode);
               setGameStarted(true);
               setGameStartTime(Date.now());
-              toast.success("遊戲房間已建立！");
+              toast.success("Game room created!");
             }
           },
           onError: (error) => {
-            toast.error("建立房間失敗");
+            toast.error("Failed to create room");
             navigate("/dashboard");
           },
         }
@@ -120,7 +114,7 @@ export default function GameRoom(props: any = {}) {
     submitAnswerMutation.mutate(
       {
         roomId,
-        answer: answer.trim() || "(未作答)",
+        answer: answer.trim() || "(No answer)",
         responseTime: time,
       },
       {
@@ -130,14 +124,14 @@ export default function GameRoom(props: any = {}) {
           setShowAnswer(true);
           
           if (data.isCorrect) {
-            toast.success(`✅ 正確！獲得 ${data.score} 分`);
+            toast.success(`✅ Correct! +${data.score} points`);
           } else {
-            const correctAnswer = (contentData as any)?.data?.[0]?.title || (contentData as any)?.[0]?.title || "未知";
-            toast.error(`❌ 錯誤。正確答案是: ${correctAnswer}`);
+            const correctAnswer = (contentData as any)?.data?.[0]?.title || (contentData as any)?.[0]?.title || "Unknown";
+            toast.error(`❌ Wrong. Answer: ${correctAnswer}`);
           }
         },
         onError: () => {
-          toast.error("提交答案失敗");
+          toast.error("Failed to submit answer");
           setShowAnswer(true);
         },
       }
@@ -183,14 +177,14 @@ export default function GameRoom(props: any = {}) {
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-orange-400">
-              {gameMode === "video" ? "🎬 影片猜謎" : "🖼️ 圖片猜謎"}
+              {gameMode === "video" ? "🎬 Video Trivia" : "🖼️ Picture Trivia"}
             </h1>
             <p className="text-sm text-orange-300">
-              模式: {gameType === "random" ? "🎲 隨機配對" : gameType === "bot" ? "🤖 vs 機器人" : "⚔️ 決鬥模式"}
+              Mode: {gameType === "random" ? "🎲 Random Match" : gameType === "bot" ? "🤖 vs Bot" : "⚔️ Duel"}
             </p>
           </div>
           <Button onClick={() => navigate("/dashboard")} variant="outline" className="border-orange-500/30">
-            返回
+            Back
           </Button>
         </div>
       </div>
@@ -202,7 +196,7 @@ export default function GameRoom(props: any = {}) {
           {/* Game Mode Selection */}
           {!gameStarted && (
             <Card className="p-6 bg-gradient-to-br from-orange-500/20 to-orange-500/5 border border-orange-500/30">
-              <h2 className="text-lg font-bold mb-4">選擇遊戲模式</h2>
+              <h2 className="text-lg font-bold mb-4">Select Game Mode</h2>
               <div className="grid grid-cols-3 gap-2 mb-4">
                 {(["random", "bot", "duel"] as const).map((mode) => (
                   <Button
@@ -211,20 +205,20 @@ export default function GameRoom(props: any = {}) {
                     variant={gameType === mode ? "default" : "outline"}
                     className={gameType === mode ? "bg-orange-500 text-black" : "border-orange-500/30"}
                   >
-                    {mode === "random" ? "🎲 隨機" : mode === "bot" ? "🤖 Bot" : "⚔️ 決鬥"}
+                    {mode === "random" ? "🎲 Random" : mode === "bot" ? "🤖 Bot" : "⚔️ Duel"}
                   </Button>
                 ))}
               </div>
 
               {/* Category Selection */}
               <div className="mb-4">
-                <label className="block text-sm font-semibold mb-2">選擇分類</label>
+                <label className="block text-sm font-semibold mb-2">Select Category</label>
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
                   className="w-full p-2 bg-black/50 border border-orange-500/30 rounded text-white"
                 >
-                  <option value="all">所有分類</option>
+                  <option value="all">All Categories</option>
                   {(categories as any)?.data?.slice(0, 20).map((cat: any) => (
                     <option key={cat} value={cat}>
                       {cat}
@@ -236,9 +230,9 @@ export default function GameRoom(props: any = {}) {
               {/* Duel Code Input */}
               {gameType === "duel" && (
                 <div className="mb-4">
-                  <label className="block text-sm font-semibold mb-2">決鬥房號</label>
+                  <label className="block text-sm font-semibold mb-2">Duel Room Code</label>
                   <Input
-                    placeholder="輸入房號或留空建立新房間"
+                    placeholder="Enter code or leave empty to create new"
                     value={duelCode}
                     onChange={(e) => setDuelCode(e.target.value)}
                     className="bg-black/50 border-orange-500/30 text-white"
@@ -247,7 +241,7 @@ export default function GameRoom(props: any = {}) {
               )}
 
               <Button onClick={() => setGameStarted(true)} className="w-full bg-orange-500 hover:bg-orange-600 text-black font-bold">
-                開始遊戲
+                Start Game
               </Button>
             </Card>
           )}
@@ -258,12 +252,12 @@ export default function GameRoom(props: any = {}) {
               {/* Timer and Round Info */}
               <div className="grid grid-cols-2 gap-4">
                 <Card className="p-4 bg-gradient-to-br from-red-500/20 to-red-500/5 border border-red-500/30 text-center">
-                  <p className="text-sm text-red-300">剩餘時間</p>
+                  <p className="text-sm text-red-300">Time Left</p>
                   <p className="text-4xl font-bold text-red-400">{timeLeft}s</p>
                 </Card>
                 <Card className="p-4 bg-gradient-to-br from-orange-500/20 to-orange-500/5 border border-orange-500/30 text-center">
-                  <p className="text-sm text-orange-300">第 {round} 輪</p>
-                  <p className="text-2xl font-bold text-orange-400">{score} 分</p>
+                  <p className="text-sm text-orange-300">Round {round}</p>
+                  <p className="text-2xl font-bold text-orange-400">{score} pts</p>
                 </Card>
               </div>
 
@@ -271,14 +265,31 @@ export default function GameRoom(props: any = {}) {
               <Card className="p-6 bg-gradient-to-br from-orange-500/20 to-orange-500/5 border border-orange-500/30">
                 {currentContent ? (
                   gameMode === "video" ? (
-                    <div className="w-full h-96 bg-black rounded flex items-center justify-center">
-                      <p className="text-orange-300">影片播放器</p>
-                      {/* 實際部署時可在此嵌入影片播放器 */}
+                    <div className="w-full aspect-video bg-black rounded overflow-hidden">
+                      <iframe
+                        src={`https://www.pornhub.com/embed/${currentContent.id || currentContent.videoId}`}
+                        width="100%"
+                        height="100%"
+                        frameBorder="0"
+                        allow="autoplay; encrypted-media"
+                        allowFullScreen
+                        style={{ border: "none" }}
+                      />
                     </div>
                   ) : (
-                    <div className="w-full h-96 bg-black rounded flex items-center justify-center">
-                      <p className="text-orange-300">圖片加載中...</p>
-                      {/* 實際部署時可在此顯示圖片 */}
+                    <div className="w-full h-96 bg-black rounded overflow-hidden flex items-center justify-center">
+                      {currentContent.thumbnail ? (
+                        <img
+                          src={currentContent.thumbnail}
+                          alt="Content"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect fill='%23333' width='400' height='300'/%3E%3Ctext x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%23999' font-size='16'%3EImage unavailable%3C/text%3E%3C/svg%3E";
+                          }}
+                        />
+                      ) : (
+                        <p className="text-orange-300">Image loading...</p>
+                      )}
                     </div>
                   )
                 ) : (
@@ -292,7 +303,7 @@ export default function GameRoom(props: any = {}) {
               {!showAnswer ? (
                 <div className="flex gap-2">
                   <Input
-                    placeholder="輸入您的答案..."
+                    placeholder="Enter your answer..."
                     value={answer}
                     onChange={(e) => setAnswer(e.target.value)}
                     onKeyPress={(e) => e.key === "Enter" && handleSubmitAnswer()}
@@ -304,7 +315,7 @@ export default function GameRoom(props: any = {}) {
                     disabled={timeLeft === 0}
                     className="bg-orange-500 hover:bg-orange-600 text-black font-bold"
                   >
-                    提交
+                    Submit
                   </Button>
                 </div>
               ) : (
@@ -315,25 +326,25 @@ export default function GameRoom(props: any = {}) {
                 >
                   <Card className={`p-6 ${isCorrect ? "bg-green-900/30 border-green-500/30" : "bg-red-900/30 border-red-500/30"}`}>
                     <p className="text-lg font-bold mb-2">
-                      {isCorrect ? "✅ 正確！" : "❌ 錯誤"}
+                      {isCorrect ? "✅ Correct!" : "❌ Wrong"}
                     </p>
                     <p className="text-sm">
-                      正確答案: <span className="font-bold text-orange-400">{(currentContent as any)?.title || "未知"}</span>
+                      Answer: <span className="font-bold text-orange-400">{(currentContent as any)?.title || "Unknown"}</span>
                     </p>
                     <p className="text-sm mt-2">
-                      您的答案: <span className="font-bold">{answer || "(未作答)"}</span>
+                      Your answer: <span className="font-bold">{answer || "(No answer)"}</span>
                     </p>
                     <p className="text-sm mt-2">
-                      回答時間: <span className="font-bold">{(responseTime / 1000).toFixed(1)}s</span>
+                      Response time: <span className="font-bold">{(responseTime / 1000).toFixed(1)}s</span>
                     </p>
                   </Card>
 
                   <div className="flex gap-2">
                     <Button onClick={handleNextRound} className="flex-1 bg-orange-500 text-black font-bold">
-                      下一輪
+                      Next Round
                     </Button>
                     <Button onClick={() => navigate("/dashboard")} variant="outline" className="flex-1 border-orange-500/30">
-                      退出遊戲
+                      Exit Game
                     </Button>
                   </div>
                 </motion.div>
@@ -347,9 +358,9 @@ export default function GameRoom(props: any = {}) {
           {/* Room Info */}
           {roomCode && (
             <Card className="p-4 bg-gradient-to-br from-orange-500/20 to-orange-500/5 border border-orange-500/30">
-              <p className="text-sm text-orange-300 mb-2">房間號碼</p>
+              <p className="text-sm text-orange-300 mb-2">Room Code</p>
               <div className="flex gap-2">
-                <code className="flex-1 bg-black/50 p-2 rounded text-orange-400 font-mono text-sm">{roomCode}</code>
+                <code className="flex-1 bg-black/50 p-2 rounded font-mono text-orange-400">{roomCode}</code>
                 <Button
                   size="sm"
                   onClick={copyRoomCode}
@@ -361,28 +372,32 @@ export default function GameRoom(props: any = {}) {
             </Card>
           )}
 
-          {/* Chat Box */}
+          {/* Chat */}
           <Card className="p-4 bg-gradient-to-br from-orange-500/20 to-orange-500/5 border border-orange-500/30 flex flex-col h-96">
-            <h3 className="font-bold mb-2 text-orange-400">遊戲聊天</h3>
-            <div className="flex-1 overflow-y-auto mb-2 space-y-2 text-sm">
+            <h3 className="font-bold mb-3 text-orange-300">Game Chat</h3>
+            
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto space-y-2 mb-3">
               {chatMessages.length === 0 ? (
-                <p className="text-orange-300/50">暫無訊息</p>
+                <p className="text-sm text-orange-300/50">No messages yet...</p>
               ) : (
                 chatMessages.map((msg, idx) => (
-                  <div key={idx} className="text-xs">
-                    <span className="text-orange-400 font-semibold">{msg.user}:</span>
-                    <span className="text-white ml-1">{msg.message}</span>
+                  <div key={idx} className="text-sm">
+                    <span className="font-semibold text-orange-400">{msg.user}:</span>
+                    <span className="text-orange-100 ml-2">{msg.message}</span>
                   </div>
                 ))
               )}
             </div>
+
+            {/* Input */}
             <div className="flex gap-2">
               <Input
-                placeholder="輸入訊息..."
+                placeholder="Send message..."
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && sendChatMessage()}
-                className="flex-1 bg-black/50 border-orange-500/30 text-white text-sm h-8"
+                className="flex-1 bg-black/50 border-orange-500/30 text-white h-8"
               />
               <Button
                 size="sm"
@@ -396,22 +411,27 @@ export default function GameRoom(props: any = {}) {
 
           {/* Voice Chat */}
           <Card className="p-4 bg-gradient-to-br from-orange-500/20 to-orange-500/5 border border-orange-500/30">
-            <p className="text-sm text-orange-300 mb-2">語音聊天</p>
-            <div className="flex gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold">Voice Chat</span>
               <Button
+                size="sm"
                 onClick={() => setVoiceEnabled(!voiceEnabled)}
-                className={voiceEnabled ? "flex-1 bg-green-500 text-white" : "flex-1 bg-orange-500 text-black"}
+                className={voiceEnabled ? "bg-green-600" : "bg-gray-600"}
               >
-                {voiceEnabled ? "🎤 語音已啟用" : "🎤 啟用語音"}
-              </Button>
-              <Button
-                onClick={() => setIsMuted(!isMuted)}
-                variant="outline"
-                className="border-orange-500/30"
-              >
-                {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
+                <Volume2 size={16} />
               </Button>
             </div>
+            {voiceEnabled && (
+              <Button
+                size="sm"
+                onClick={() => setIsMuted(!isMuted)}
+                className="w-full mt-2"
+                variant="outline"
+              >
+                {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
+                {isMuted ? "Unmute" : "Mute"}
+              </Button>
+            )}
           </Card>
         </div>
       </div>

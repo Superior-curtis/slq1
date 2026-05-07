@@ -16,8 +16,17 @@ export default function NotificationCenter() {
   const markAllAsReadMutation = trpc.notifications.markAllAsRead.useMutation();
 
   if (!isAuthenticated) {
-    navigate("/");
-    return null;
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-orange-400 mb-4">Access Denied</h1>
+          <p className="text-orange-300 mb-6">Please log in to view notifications</p>
+          <Button onClick={() => navigate("/")} className="bg-orange-500 hover:bg-orange-600 text-black">
+            Go to Home
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   const handleMarkAsRead = (notificationId: string) => {
@@ -93,7 +102,7 @@ export default function NotificationCenter() {
           <div className="flex items-center gap-4">
             <Link href="/dashboard">
               <Button variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-500/10">
-                返回儀表板
+                Back to Dashboard
               </Button>
             </Link>
           </div>
@@ -109,7 +118,7 @@ export default function NotificationCenter() {
           <div className="flex items-center justify-between mb-8">
             <h1 className="text-4xl font-bold">
               <Bell className="inline-block w-10 h-10 text-orange-500 mr-3" />
-              通知中心
+              Notification Center
             </h1>
             {notifications && notifications.length > 0 && (
               <Button
@@ -118,7 +127,7 @@ export default function NotificationCenter() {
                 variant="outline"
                 className="border-orange-500 text-orange-500 hover:bg-orange-500/10"
               >
-                全部標記為已讀
+                Mark All as Read
               </Button>
             )}
           </div>
@@ -155,7 +164,7 @@ export default function NotificationCenter() {
                         <p className="text-gray-400 text-sm mt-1">{notif.content}</p>
                       )}
                       <p className="text-xs text-gray-500 mt-2">
-                        {new Date(notif.createdAt).toLocaleString("zh-TW")}
+                        {new Date(notif.createdAt).toLocaleString()}
                       </p>
                     </div>
                   </div>
@@ -168,7 +177,7 @@ export default function NotificationCenter() {
                         size="sm"
                         className="bg-orange-500 hover:bg-orange-600 text-black font-bold"
                       >
-                        標記已讀
+                        Mark Read
                       </Button>
                     )}
                   </div>
@@ -178,8 +187,8 @@ export default function NotificationCenter() {
           ) : (
             <div className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border border-orange-500/20 rounded-lg p-12 text-center">
               <Bell className="w-16 h-16 text-orange-500/30 mx-auto mb-4" />
-              <p className="text-gray-400 text-lg">暫無通知</p>
-              <p className="text-gray-500 text-sm mt-2">當您收到邀請或排名變化時，通知將出現在這裡</p>
+              <p className="text-gray-400 text-lg">No Notifications</p>
+              <p className="text-gray-500 text-sm mt-2">Notifications will appear here when you receive invites or rank changes</p>
             </div>
           )}
         </motion.div>

@@ -45,7 +45,7 @@ export default function Leaderboard() {
             {isAuthenticated && (
               <Link href="/dashboard">
                 <Button variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-500/10">
-                  回到儀表板
+                  Back to Dashboard
                 </Button>
               </Link>
             )}
@@ -62,7 +62,7 @@ export default function Leaderboard() {
           <div className="flex items-center justify-between mb-8">
             <h1 className="text-4xl font-bold">
               <Trophy className="inline-block w-10 h-10 text-orange-500 mr-3" />
-              全球排行榜
+              Global Leaderboard
             </h1>
           </div>
 
@@ -75,19 +75,19 @@ export default function Leaderboard() {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm">您的排名</p>
+                  <p className="text-gray-400 text-sm">Your Rank</p>
                   <p className="text-3xl font-bold text-orange-400">
                     #{playerRank.rank}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-gray-400 text-sm">積分</p>
+                  <p className="text-gray-400 text-sm">Score</p>
                   <p className="text-3xl font-bold text-orange-400">
                     {playerRank.totalScore}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-gray-400 text-sm">百分比</p>
+                  <p className="text-gray-400 text-sm">Percentile</p>
                   <p className="text-3xl font-bold text-orange-400">
                     {playerRank.percentile}%
                   </p>
@@ -123,9 +123,9 @@ export default function Leaderboard() {
                       {getMedalIcon(player.rank)}
                     </div>
                     <div className="flex-1">
-                      <p className="font-bold text-lg">玩家 #{player.userId}</p>
+                      <p className="font-bold text-lg">Player #{player.userId}</p>
                       <p className="text-sm text-gray-400">
-                        {player.gamesPlayed} 場遊戲 · {player.gamesWon} 場勝利
+                        {player.gamesPlayed} games · {player.gamesWon} wins
                       </p>
                     </div>
                   </div>
@@ -135,7 +135,7 @@ export default function Leaderboard() {
                       {player.totalScore}
                     </p>
                     <p className="text-sm text-gray-400">
-                      勝率: {player.winRate.toFixed(1)}%
+                      Win Rate: {player.winRate.toFixed(1)}%
                     </p>
                   </div>
                 </motion.div>

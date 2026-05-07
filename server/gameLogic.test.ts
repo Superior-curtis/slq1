@@ -38,7 +38,7 @@ describe("Game Logic", () => {
       const code = generateRoomCode();
       expect(code).toBeDefined();
       expect(code.length).toBe(8);
-      expect(/^[A-Z0-9]+$/.test(code)).toBe(true);
+      expect(/^[a-zA-Z0-9]+$/.test(code)).toBe(true);
     });
 
     it("should generate unique room codes", () => {

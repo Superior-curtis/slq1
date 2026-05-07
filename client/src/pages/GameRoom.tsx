@@ -7,11 +7,8 @@ import { useState, useEffect } from "react";
 import { Loader2, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 
-export interface GameRoomProps {
-  gameMode?: "picture" | "video";
-}
-
-export default function GameRoom({ gameMode = "picture" }: GameRoomProps) {
+export default function GameRoom(props: any = {}) {
+  const gameMode = props.gameMode || "picture";
   const { user, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
   const [roomId, setRoomId] = useState<string | null>(null);
@@ -23,14 +20,10 @@ export default function GameRoom({ gameMode = "picture" }: GameRoomProps) {
   const [copied, setCopied] = useState(false);
 
   const createRoomMutation = trpc.game.createRoom.useMutation();
-  const getRoomQuery = trpc.game.getRoom.useQuery(
-    { roomId: roomId || "" },
-    { enabled: !!roomId, refetchInterval: 1000 }
-  );
-  const startGameMutation = trpc.game.startGame.useMutation();
+  const startGameMutation = trpc.game.finishGame.useMutation();
   const submitAnswerMutation = trpc.game.submitAnswer.useMutation();
-  const getContentQuery = trpc.game.getRandomContent.useQuery({
-    contentType: gameMode,
+  const getContentQuery = trpc.game.getContent.useQuery({
+    type: gameMode,
   });
 
   if (!isAuthenticated) {
@@ -44,14 +37,15 @@ export default function GameRoom({ gameMode = "picture" }: GameRoomProps) {
       createRoomMutation.mutate(
         {
           gameMode: gameMode as "picture" | "video",
-          roomType: "random",
-          maxPlayers: 2,
+          roomType: "random" as const,
         },
         {
           onSuccess: (data) => {
-            setRoomId(data.roomId);
-            setRoomCode(data.roomCode);
-            toast.success("遊戲房間已建立！");
+            if (data) {
+              setRoomId(data.id);
+              setRoomCode(data.roomCode);
+              toast.success("遊戲房間已建立！");
+            }
           },
           onError: (error) => {
             toast.error("建立房間失敗");
@@ -104,14 +98,14 @@ export default function GameRoom({ gameMode = "picture" }: GameRoomProps) {
       {
         roomId,
         answer: answer.trim(),
-        responseTimeMs: time,
+        responseTime: time,
       },
       {
         onSuccess: (data) => {
           if (data.isCorrect) {
             toast.success(`✅ 正確！獲得 ${data.score} 分`);
           } else {
-            toast.error(`❌ 錯誤。正確答案：${data.correctAnswers.join(", ")}`);
+            toast.error(`❌ 錯誤。請重新嘗試。`);
           }
           setAnswer("");
           setGameStartTime(Date.now());
@@ -235,13 +229,13 @@ export default function GameRoom({ gameMode = "picture" }: GameRoomProps) {
                 >
                   {gameMode === "picture" ? (
                     <img
-                      src={getContentQuery.data.url}
+                      src={(getContentQuery.data as any)?.link || "https://via.placeholder.com/400x300?text=Picture+Mode"}
                       alt="Game content"
                       className="w-full h-96 object-cover rounded-lg mb-6"
                     />
                   ) : (
                     <video
-                      src={getContentQuery.data.url}
+                      src={(getContentQuery.data as any)?.link || "https://via.placeholder.com/400x300?text=Video+Mode"}
                       controls
                       className="w-full h-96 rounded-lg mb-6"
                     />

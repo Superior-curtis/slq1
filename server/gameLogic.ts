@@ -91,7 +91,7 @@ export async function createNewGameRoom(
   maxPlayers: number = 2
 ): Promise<GameRoom | null> {
   const roomId = nanoid();
-  const roomCode = roomType === 'duel' ? generateRoomCode() : '';
+  const roomCode = generateRoomCode(); // Always generate unique code
 
   const room = {
     id: roomId,

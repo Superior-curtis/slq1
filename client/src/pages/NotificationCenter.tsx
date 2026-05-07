@@ -135,7 +135,7 @@ export default function NotificationCenter() {
               transition={{ staggerChildren: 0.05 }}
               className="space-y-4"
             >
-              {notifications.map((notif, idx) => (
+              {notifications.map((notif: any, idx: number) => (
                 <motion.div
                   key={idx}
                   initial={{ opacity: 0, x: -20 }}

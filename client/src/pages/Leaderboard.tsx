@@ -7,7 +7,7 @@ import { Loader2, Trophy, Medal } from "lucide-react";
 
 export default function Leaderboard() {
   const { isAuthenticated } = useAuth();
-  const { data: leaderboard, isLoading } = trpc.leaderboard.getTop.useQuery({
+  const { data: leaderboard, isLoading } = trpc.leaderboard.getTopPlayers.useQuery({
     limit: 100,
   });
 
@@ -87,9 +87,9 @@ export default function Leaderboard() {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-gray-400 text-sm">勝率</p>
+                  <p className="text-gray-400 text-sm">百分比</p>
                   <p className="text-3xl font-bold text-orange-400">
-                    {playerRank.winRate.toFixed(1)}%
+                    {playerRank.percentile}%
                   </p>
                 </div>
               </div>
@@ -108,7 +108,7 @@ export default function Leaderboard() {
               transition={{ staggerChildren: 0.05 }}
               className="space-y-2"
             >
-              {leaderboard?.map((player, idx) => (
+              {leaderboard?.map((player: any, idx: number) => (
                 <motion.div
                   key={idx}
                   initial={{ opacity: 0, x: -20 }}

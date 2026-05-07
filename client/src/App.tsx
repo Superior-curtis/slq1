@@ -46,7 +46,7 @@ function Router() {
       <Route path={"/dashboard"} component={Dashboard} />
       <Route path={"/leaderboard"} component={Leaderboard} />
       <Route path={"/profile"} component={Profile} />
-      <Route path={"/game/:roomId"} component={GameRoom} />
+      <Route path={"/game"} component={GameRoom} />
       <Route path={"/notifications"} component={NotificationCenter} />
       <Route path={"/lobby"} component={Lobby} />
       <Route path={"/highlights"} component={Highlights} />

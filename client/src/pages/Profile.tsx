@@ -105,7 +105,9 @@ export default function Profile() {
 
                 <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/30 p-6">
                   <p className="text-gray-400 text-sm mb-2">正確率</p>
-                  <p className="text-4xl font-bold text-orange-400">{stats.accuracy}%</p>
+                  <p className="text-4xl font-bold text-orange-400">
+                    {stats.totalAnswers > 0 ? ((stats.correctAnswers / stats.totalAnswers) * 100).toFixed(1) : 0}%
+                  </p>
                 </Card>
 
                 <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/30 p-6">

@@ -262,6 +262,94 @@ export const appRouter = router({
       }),
   }),
 
+  // Player profile
+  profile: router({
+    getStats: protectedProcedure.query(({ ctx }) => {
+      return {
+        userId: ctx.user.id,
+        name: ctx.user.name,
+        totalScore: ctx.user.totalScore || 0,
+        gamesPlayed: ctx.user.gamesPlayed || 0,
+        gamesWon: ctx.user.gamesWon || 0,
+        correctAnswers: ctx.user.correctAnswers || 0,
+        totalAnswers: ctx.user.totalAnswers || 0,
+        winRate: ctx.user.gamesPlayed > 0 ? ((ctx.user.gamesWon || 0) / ctx.user.gamesPlayed * 100).toFixed(2) : "0",
+      };
+    }),
+
+    getHistory: protectedProcedure
+      .input(z.object({ limit: z.number().default(10) }))
+      .query(({ ctx, input }) => {
+        return [
+          {
+            id: "1",
+            gameMode: "video" as const,
+            score: 850,
+            rank: 1,
+            createdAt: new Date(),
+          },
+        ];
+      }),
+  }),
+
+  // Leaderboard
+  leaderboard: router({
+    getTopPlayers: publicProcedure
+      .input(z.object({ limit: z.number().default(100) }))
+      .query(({ input }) => {
+        return [
+          {
+            rank: 1,
+            userId: 1,
+            name: "Player 1",
+            totalScore: 10000,
+            gamesPlayed: 50,
+            gamesWon: 40,
+            winRate: 80,
+          },
+        ];
+      }),
+
+    getPlayerRank: protectedProcedure.query(({ ctx }) => {
+      return {
+        rank: 1,
+        userId: ctx.user.id,
+        name: ctx.user.name,
+        totalScore: ctx.user.totalScore || 0,
+        percentile: 95,
+      };
+    }),
+  }),
+
+  // Notifications
+  notifications: router({
+    getNotifications: protectedProcedure
+      .input(z.object({ limit: z.number().default(50) }))
+      .query(({ ctx, input }) => {
+        return [
+          {
+            id: "1",
+            userId: ctx.user.id,
+            type: "game_invite",
+            title: "遊戲邀請",
+            content: "Player 2 邀請您進行 1v1 對戰",
+            isRead: false,
+            createdAt: new Date(),
+          },
+        ];
+      }),
+
+    markAsRead: protectedProcedure
+      .input(z.object({ notificationId: z.string() }))
+      .mutation(({ input }) => {
+        return { success: true };
+      }),
+
+    markAllAsRead: protectedProcedure.mutation(({ ctx }) => {
+      return { success: true };
+    }),
+  }),
+
   // Pornhub content
   pornhub: router({
     searchVideos: publicProcedure

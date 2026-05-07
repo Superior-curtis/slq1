@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { getLoginUrl } from "@/const";
 import { Link } from "wouter";
-import { Zap, Users, Trophy, Flame } from "lucide-react";
+import { Zap, Users, Trophy, Flame, Bell } from "lucide-react";
 
 export default function Home() {
   const { user, loading, isAuthenticated } = useAuth();
@@ -52,6 +52,11 @@ export default function Home() {
                 <span className="text-sm text-gray-400">
                   歡迎, {user?.name}
                 </span>
+                <Link href="/notifications">
+                  <Button variant="ghost" className="text-orange-500 hover:bg-orange-500/10">
+                    <Bell className="w-4 h-4" />
+                  </Button>
+                </Link>
                 <Link href="/dashboard">
                   <Button variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-500/10">
                     進入遊戲

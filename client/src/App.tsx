@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import GameRoom from "./pages/GameRoom";
 import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
+import NotificationCenter from "./pages/NotificationCenter";
 
 function Router() {
   return (
@@ -19,6 +20,7 @@ function Router() {
       <Route path={"/game/video"} component={() => <GameRoom gameMode="video" />} />
       <Route path={"/leaderboard"} component={Leaderboard} />
       <Route path={"/profile"} component={Profile} />
+      <Route path={"/notifications"} component={NotificationCenter} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

@@ -133,7 +133,7 @@ export default function Profile() {
                 className="space-y-4"
               >
                 {history && history.length > 0 ? (
-                  history.map((game, idx) => (
+                  history.map((game: any, idx: number) => (
                     <motion.div
                       key={idx}
                       initial={{ opacity: 0, x: -20 }}

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   calculateScore,
   generateRoomCode,
@@ -75,6 +75,6 @@ describe("Game Logic", () => {
         ["correct answer"]
       );
       expect(typeof result).toBe("boolean");
-    });
+    }, 15000); // 15 second timeout for LLM call
   });
 });

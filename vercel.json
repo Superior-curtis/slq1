@@ -1,5 +1,4 @@
 {
-  "framework": null,
   "buildCommand": "npm run build:frontend",
   "outputDirectory": "dist/public"
 }

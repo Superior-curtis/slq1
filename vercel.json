@@ -5,15 +5,15 @@
   "installCommand": "pnpm install --frozen-lockfile",
   "env": {
     "VITE_BACKEND_URL": {
-      "description": "Backend API URL (e.g., https://porn-guesser-api.up.railway.app)"
+      "description": "Backend API URL",
+      "default": ""
     }
   },
-  "redirects": [
-    {
-      "source": "/api/:path*",
-      "destination": "$VITE_BACKEND_URL/api/:path*"
+  "build": {
+    "env": {
+      "VITE_BACKEND_URL": ""
     }
-  ],
+  },
   "rewrites": [
     {
       "source": "/:path*",

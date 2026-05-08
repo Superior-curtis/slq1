@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npx vite build",
+  "buildCommand": "npm run build:frontend",
   "outputDirectory": "./dist/public",
   "installCommand": "npm install --legacy-peer-deps",
   "public": "./dist/public",

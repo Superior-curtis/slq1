@@ -3,17 +3,6 @@
   "outputDirectory": "dist/public",
   "framework": "vite",
   "installCommand": "pnpm install --frozen-lockfile",
-  "env": {
-    "VITE_BACKEND_URL": {
-      "description": "Backend API URL",
-      "default": ""
-    }
-  },
-  "build": {
-    "env": {
-      "VITE_BACKEND_URL": ""
-    }
-  },
   "rewrites": [
     {
       "source": "/:path*",

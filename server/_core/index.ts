@@ -9,6 +9,7 @@ import { registerPornhubProxy } from "../pornhubProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { initializeSocketServer } from "../socketServer";
 
 const COOKIE_NAME = process.env.COOKIE_NAME || "app_session_id";
 
@@ -40,6 +41,8 @@ async function startServer() {
   registerStorageProxy(app);
   registerOAuthRoutes(app);
   registerPornhubProxy(app);
+  // Initialize Socket.IO
+  initializeSocketServer(server);
   // tRPC API
   app.use(
     "/api/trpc",

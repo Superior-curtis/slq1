@@ -1,13 +1,4 @@
-import { execSync } from "child_process";
-import * as path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-/**
- * Pornhub API 客戶端 - 調用 Python 包裝器
- */
+import axios from "axios";
 
 interface PornhubVideo {
   id: string;
@@ -30,35 +21,66 @@ interface PornhubCategory {
   videoCount: number;
 }
 
-const pythonWrapperPath = path.resolve(__dirname, "pornhubPythonWrapper.py");
+const PORNHUB_API_BASE = "https://www.pornhub.com/api";
+const USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-/**
- * 執行 Python 包裝器
- */
-function executePythonWrapper(command: string, ...args: string[]): any {
-  try {
-    const cmd = `python3 "${pythonWrapperPath}" ${command} ${args.join(" ")}`;
-    const output = execSync(cmd, { encoding: "utf-8", maxBuffer: 10 * 1024 * 1024 });
-    return JSON.parse(output);
-  } catch (error) {
-    console.error("[Pornhub Client] Error executing Python wrapper:", error);
-    return { success: false, error: String(error) };
-  }
-}
+const axiosInstance = axios.create({
+  baseURL: PORNHUB_API_BASE,
+  headers: {
+    "User-Agent": USER_AGENT,
+  },
+  timeout: 15000,
+});
 
 /**
  * 獲取所有分類
  */
-export async function getCategories(): Promise<PornhubCategory[]> {
+export async function getCategories(): Promise<string[]> {
   try {
-    const result = executePythonWrapper("categories");
-    if (result.success && result.data) {
-      return result.data;
-    }
-    return [];
+    const response = await axiosInstance.get("/v2/categories/list", {
+      params: {
+        limit: 100,
+      },
+    });
+
+    const categories = response.data?.categories || [];
+    return categories.map((cat: any) => (typeof cat === "string" ? cat : cat.name || cat));
   } catch (error) {
     console.error("[Pornhub Client] Failed to get categories:", error);
-    return [];
+    // 返回默認分類
+    return [
+      "amateur",
+      "anal",
+      "asian",
+      "bbw",
+      "blonde",
+      "blowjob",
+      "bondage",
+      "brunette",
+      "creampie",
+      "cumshot",
+      "ebony",
+      "fetish",
+      "gangbang",
+      "gay",
+      "hairy",
+      "handjob",
+      "hd",
+      "homemade",
+      "interracial",
+      "lesbian",
+      "mature",
+      "milf",
+      "orgasm",
+      "pov",
+      "redhead",
+      "rough",
+      "squirt",
+      "teen",
+      "threesome",
+      "toys",
+    ];
   }
 }
 
@@ -71,17 +93,31 @@ export async function searchVideos(
   count: number = 10
 ): Promise<PornhubVideo[]> {
   try {
-    const args = [query];
-    if (category) {
-      args.push(category);
-    }
-    args.push(String(count));
+    const params: any = {
+      search: query || "popular",
+      limit: Math.min(count, 50),
+      ordering: "newest",
+    };
 
-    const result = executePythonWrapper("search", ...args);
-    if (result.success && result.data) {
-      return result.data;
+    if (category && category !== "all") {
+      params.category = category;
     }
-    return [];
+
+    const response = await axiosInstance.get("/v2/videos/search", { params });
+
+    const videos = response.data?.videos || [];
+    return videos.map((v: any) => ({
+      id: v.video_id || v.id || "",
+      title: v.title || "Unknown",
+      url: v.url || `https://www.pornhub.com/view_video.php?viewkey=${v.video_id}`,
+      thumbnail: v.thumb || v.thumbnail || "",
+      duration: parseInt(v.duration) || 0,
+      views: parseInt(v.views) || 0,
+      rating: parseFloat(v.rating) || 0,
+      uploadDate: v.upload_date || "",
+      actors: Array.isArray(v.actors) ? v.actors : v.actors ? [v.actors] : [],
+      categories: Array.isArray(v.categories) ? v.categories : v.categories ? [v.categories] : [],
+    }));
   } catch (error) {
     console.error("[Pornhub Client] Failed to search videos:", error);
     return [];
@@ -93,11 +129,27 @@ export async function searchVideos(
  */
 export async function getVideoById(videoId: string): Promise<PornhubVideo | null> {
   try {
-    const result = executePythonWrapper("video", videoId);
-    if (result.success && result.data) {
-      return result.data;
-    }
-    return null;
+    const response = await axiosInstance.get("/v2/videos/get", {
+      params: {
+        video_id: videoId,
+      },
+    });
+
+    const v = response.data?.video;
+    if (!v) return null;
+
+    return {
+      id: v.video_id || v.id || "",
+      title: v.title || "Unknown",
+      url: v.url || `https://www.pornhub.com/view_video.php?viewkey=${v.video_id}`,
+      thumbnail: v.thumb || v.thumbnail || "",
+      duration: parseInt(v.duration) || 0,
+      views: parseInt(v.views) || 0,
+      rating: parseFloat(v.rating) || 0,
+      uploadDate: v.upload_date || "",
+      actors: Array.isArray(v.actors) ? v.actors : v.actors ? [v.actors] : [],
+      categories: Array.isArray(v.categories) ? v.categories : v.categories ? [v.categories] : [],
+    };
   } catch (error) {
     console.error("[Pornhub Client] Failed to get video:", error);
     return null;
@@ -107,22 +159,36 @@ export async function getVideoById(videoId: string): Promise<PornhubVideo | null
 /**
  * 獲取隨機影片
  */
-export async function getRandomVideos(
-  category?: string,
-  count: number = 5
-): Promise<PornhubVideo[]> {
+export async function getRandomVideos(category?: string, count: number = 5): Promise<PornhubVideo[]> {
   try {
-    const args = [];
-    if (category) {
-      args.push(category);
-    }
-    args.push(String(count));
+    const params: any = {
+      limit: Math.min(count * 2, 100),
+      ordering: "trending",
+    };
 
-    const result = executePythonWrapper("random", ...args);
-    if (result.success && result.data) {
-      return result.data;
+    if (category && category !== "all") {
+      params.category = category;
     }
-    return [];
+
+    const response = await axiosInstance.get("/v2/videos/search", { params });
+
+    const videos = response.data?.videos || [];
+
+    // 隨機選擇
+    const shuffled = videos.sort(() => Math.random() - 0.5).slice(0, count);
+
+    return shuffled.map((v: any) => ({
+      id: v.video_id || v.id || "",
+      title: v.title || "Unknown",
+      url: v.url || `https://www.pornhub.com/view_video.php?viewkey=${v.video_id}`,
+      thumbnail: v.thumb || v.thumbnail || "",
+      duration: parseInt(v.duration) || 0,
+      views: parseInt(v.views) || 0,
+      rating: parseFloat(v.rating) || 0,
+      uploadDate: v.upload_date || "",
+      actors: Array.isArray(v.actors) ? v.actors : v.actors ? [v.actors] : [],
+      categories: Array.isArray(v.categories) ? v.categories : v.categories ? [v.categories] : [],
+    }));
   } catch (error) {
     console.error("[Pornhub Client] Failed to get random videos:", error);
     return [];

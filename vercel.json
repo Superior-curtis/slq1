@@ -1,0 +1,23 @@
+{
+  "buildCommand": "pnpm run build",
+  "outputDirectory": "dist/public",
+  "framework": "vite",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "env": {
+    "VITE_BACKEND_URL": {
+      "description": "Backend API URL (e.g., https://porn-guesser-api.up.railway.app)"
+    }
+  },
+  "redirects": [
+    {
+      "source": "/api/:path*",
+      "destination": "$VITE_BACKEND_URL/api/:path*"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/:path*",
+      "destination": "/index.html"
+    }
+  ]
+}

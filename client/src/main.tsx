@@ -37,10 +37,14 @@ queryClient.getMutationCache().subscribe(event => {
   }
 });
 
+// Get backend URL from environment variable or use relative path for local dev
+const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
+const apiUrl = backendUrl ? `${backendUrl}/api/trpc` : '/api/trpc';
+
 const trpcClient = trpc.createClient({
   links: [
     httpBatchLink({
-      url: "/api/trpc",
+      url: apiUrl,
       transformer: superjson,
       fetch(input, init) {
         return globalThis.fetch(input, {

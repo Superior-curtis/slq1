@@ -8,8 +8,5 @@
       "source": "/:path((?!assets/.*).*)",
       "destination": "/index.html"
     }
-  ],
-  "deploymentProtection": {
-    "enabled": false
-  }
+  ]
 }

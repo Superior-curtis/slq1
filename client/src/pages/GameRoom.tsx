@@ -51,6 +51,9 @@ export default function GameRoom(props: any = {}) {
 
   const createRoomMutation = trpc.game.createRoom.useMutation();
   const submitAnswerMutation = trpc.game.submitAnswer.useMutation();
+  const joinQueueMutation = trpc.matchmaking.joinQueue.useMutation();
+  const leaveQueueMutation = trpc.matchmaking.leaveQueue.useMutation();
+  const getQueueStatusQuery = trpc.matchmaking.getQueueStatus.useQuery(undefined, { enabled: gameType === "random" && !gameStarted });
 
   // Timer effect
   useEffect(() => {
@@ -270,11 +273,49 @@ export default function GameRoom(props: any = {}) {
               )}
 
               <Button
-                onClick={() => setGameStarted(true)}
-                className="w-full bg-orange-500 hover:bg-orange-600 text-black font-bold"
+                onClick={() => {
+                  if (gameType === "random") {
+                    joinQueueMutation.mutate(undefined, {
+                      onSuccess: (data) => {
+                        if (data.success) {
+                          toast.info(`Joined queue! Position: ${data.queuePosition}/${data.queueSize}`);
+                        }
+                      },
+                      onError: () => {
+                        toast.error("Failed to join queue");
+                      },
+                    });
+                  } else if (gameType === "duel") {
+                    if (!duelCode || duelCode.length < 4) {
+                      toast.error("Please enter a valid duel code");
+                      return;
+                    }
+                    setGameStarted(true);
+                  } else {
+                    setGameStarted(true);
+                  }
+                }}
+                disabled={gameType === "random" && joinQueueMutation.isPending}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-black font-bold disabled:opacity-50"
               >
-                Start Game
+                {gameType === "random" && joinQueueMutation.isPending ? (
+                  <>
+                    <Loader2 className="inline mr-2 h-4 w-4 animate-spin" />
+                    Joining Queue...
+                  </>
+                ) : gameType === "random" ? (
+                  "Find Match"
+                ) : (
+                  "Start Game"
+                )}
               </Button>
+
+              {gameType === "random" && getQueueStatusQuery.data && (
+                <Card className="p-4 bg-blue-900/30 border border-blue-500/30 text-center">
+                  <p className="text-sm text-blue-300">Queue Position: {getQueueStatusQuery.data.queuePosition}/{getQueueStatusQuery.data.queueSize}</p>
+                  <p className="text-xs text-blue-400 mt-2">Est. Wait: {getQueueStatusQuery.data.estimatedWaitTime}s</p>
+                </Card>
+              )}
             </Card>
           ) : null}
 

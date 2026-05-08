@@ -5,6 +5,8 @@
 
 import axios from "axios";
 import * as cheerio from "cheerio";
+import http from "http";
+import https from "https";
 
 interface PornhubVideo {
   id: string;
@@ -25,8 +27,17 @@ const USER_AGENT =
 const axiosInstance = axios.create({
   headers: {
     "User-Agent": USER_AGENT,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
+    "Accept-Encoding": "gzip, deflate",
+    "DNT": "1",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Referer": "https://www.pornhub.com/",
   },
   timeout: 20000,
+  httpAgent: new http.Agent({ keepAlive: true }),
+  httpsAgent: new https.Agent({ keepAlive: true }),
 });
 
 // 分類快取

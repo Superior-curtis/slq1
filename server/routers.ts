@@ -16,6 +16,7 @@ import * as pornhubClient from "./pornhubClient";
 import * as voiceChat from "./voiceChat";
 import * as lobbySystem from "./lobbySystem";
 import * as gameLogic from "./gameLogic";
+import * as matchmakingSystem from "./matchmakingSystem";
 
 export const appRouter = router({
   system: systemRouter,
@@ -286,6 +287,54 @@ export const appRouter = router({
           console.error("[Content] Failed to get video:", error);
           return { success: false, data: null };
         }
+      }),
+  }),
+
+  // Matchmaking - Random Match
+  matchmaking: router({
+    joinQueue: protectedProcedure
+      .output(z.object({
+        success: z.boolean(),
+        queuePosition: z.number(),
+        queueSize: z.number(),
+      }))
+      .mutation(({ ctx }) => {
+        const player = {
+          userId: ctx.user.id,
+          username: ctx.user.name || "Player",
+          socketId: "",
+          joinedAt: Date.now(),
+          rating: 1000,
+        };
+        matchmakingSystem.addPlayerToQueue(player);
+        return {
+          success: true,
+          queuePosition: matchmakingSystem.getPlayerQueuePosition(ctx.user.id),
+          queueSize: matchmakingSystem.getQueueSize(),
+        };
+      }),
+
+    leaveQueue: protectedProcedure.mutation(({ ctx }) => {
+      matchmakingSystem.removePlayerFromQueue(ctx.user.id);
+      return { success: true };
+    }),
+
+    getQueueStatus: protectedProcedure
+      .output(z.object({
+        inQueue: z.boolean(),
+        queuePosition: z.number(),
+        queueSize: z.number(),
+        estimatedWaitTime: z.number(),
+      }))
+      .query(({ ctx }) => {
+        const position = matchmakingSystem.getPlayerQueuePosition(ctx.user.id);
+        const queueSize = matchmakingSystem.getQueueSize();
+        return {
+          inQueue: position > 0,
+          queuePosition: position,
+          queueSize: queueSize,
+          estimatedWaitTime: Math.max(0, (queueSize - position) * 5),
+        };
       }),
   }),
 

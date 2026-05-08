@@ -1,4 +1,9 @@
 {
   "buildCommand": "npm run build:frontend",
-  "outputDirectory": "dist/public"
+  "outputDirectory": "dist/public",
+  "trailingSlash": false,
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }

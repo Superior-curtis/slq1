@@ -1,10 +1,11 @@
 {
   "buildCommand": "npx vite build",
-  "outputDirectory": "dist/public",
+  "outputDirectory": "./dist/public",
   "installCommand": "npm install --legacy-peer-deps",
+  "public": "./dist/public",
   "rewrites": [
     {
-      "source": "/:path*",
+      "source": "/:path((?!assets/.*).*)",
       "destination": "/index.html"
     }
   ],

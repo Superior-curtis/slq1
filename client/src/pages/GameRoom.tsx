@@ -42,7 +42,7 @@ export default function GameRoom(props: any = {}) {
 
   // API queries
   const { data: categoriesData } = trpc.content.getCategories.useQuery();
-  const categories = categoriesData?.data || [];
+  const categories = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []);
 
   const { data: contentData, refetch: refetchContent } = trpc.content.getRandomVideos.useQuery(
     { category: selectedCategory || "all", count: 1 },
@@ -245,11 +245,14 @@ export default function GameRoom(props: any = {}) {
                   className="w-full p-2 bg-black/50 border border-orange-500/30 rounded text-white"
                 >
                   <option value="all">All Categories</option>
-                  {categories.map((cat: string) => (
-                    <option key={cat} value={cat}>
-                      {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                    </option>
-                  ))}
+                  {categories.map((cat: string) => {
+                    const catName = typeof cat === 'string' ? cat : String(cat);
+                    return (
+                      <option key={catName} value={catName}>
+                        {catName.charAt(0).toUpperCase() + catName.slice(1)}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -304,6 +307,7 @@ export default function GameRoom(props: any = {}) {
                           allow="autoplay; encrypted-media"
                           allowFullScreen
                           style={{ border: "none" }}
+                          title="Pornhub Video"
                           onError={() => {
                             toast.error("Video failed to load. Try next round.");
                           }}
@@ -318,7 +322,7 @@ export default function GameRoom(props: any = {}) {
                     <div className="w-full h-96 bg-black rounded overflow-hidden flex items-center justify-center">
                       {currentContent.thumbnail ? (
                         <img
-                          src={currentContent.thumbnail}
+                          src={`/api/proxy/pornhub/image?url=${encodeURIComponent(currentContent.thumbnail)}`}
                           alt="Content"
                           className="w-full h-full object-cover"
                           onError={(e) => {
@@ -366,7 +370,7 @@ export default function GameRoom(props: any = {}) {
                   <Card className={`p-6 ${isCorrect ? "bg-green-900/30 border-green-500/30" : "bg-red-900/30 border-red-500/30"}`}>
                     <p className="text-lg font-bold mb-2">{isCorrect ? "✅ Correct!" : "❌ Wrong"}</p>
                     <p className="text-sm">
-                      Correct Answer(s): <span className="font-bold text-orange-400">{correctAnswers.join(" / ")}</span>
+                      Correct Answer(s): <span className="font-bold text-orange-400">{correctAnswers && correctAnswers.length > 0 ? correctAnswers.join(" / ") : "Unknown"}</span>
                     </p>
                     <p className="text-sm mt-2">
                       Your answer: <span className="font-bold">{answer || "(No answer)"}</span>

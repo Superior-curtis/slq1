@@ -15,10 +15,12 @@ import Lobby from "./pages/Lobby";
 import Highlights from "./pages/Highlights";
 import Login from "./pages/Login";
 import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 
 function Router() {
   const [ageVerified, setAgeVerified] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [, navigate] = useLocation();
 
   useEffect(() => {
     // Check age verification on mount
@@ -36,6 +38,21 @@ function Router() {
       window.removeEventListener("ageVerified", onAgeVerified);
     };
   }, []);
+
+  useEffect(() => {
+    if (!ageVerified) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const redirect = params.get("redirect");
+    if (!redirect) return;
+
+    const target = decodeURIComponent(redirect);
+    params.delete("redirect");
+    const cleanedSearch = params.toString();
+    const cleanedUrl = `${window.location.pathname}${cleanedSearch ? `?${cleanedSearch}` : ""}${window.location.hash}`;
+    window.history.replaceState({}, "", cleanedUrl);
+    navigate(target, { replace: true });
+  }, [ageVerified, navigate]);
 
   if (loading) {
     return (

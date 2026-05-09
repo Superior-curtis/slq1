@@ -13,6 +13,7 @@ import NotificationCenter from "./pages/NotificationCenter";
 import AgeVerification from "./pages/AgeVerification";
 import Lobby from "./pages/Lobby";
 import Highlights from "./pages/Highlights";
+import Login from "./pages/Login";
 import { useEffect, useState } from "react";
 
 function Router() {
@@ -36,12 +37,13 @@ function Router() {
     );
   }
 
-  if (!ageVerified) {
+  if (!ageVerified && window.location.pathname !== "/login") {
     return <AgeVerification />;
   }
 
   return (
     <Switch>
+      <Route path={"/login"} component={Login} />
       <Route path={"/"} component={Home} />
       <Route path={"/dashboard"} component={Dashboard} />
       <Route path={"/leaderboard"} component={Leaderboard} />

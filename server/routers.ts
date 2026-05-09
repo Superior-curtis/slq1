@@ -1,8 +1,11 @@
-import { COOKIE_NAME } from "@shared/const";
+import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
+import * as crypto from "crypto";
+import * as db from "./db";
+import { sdk } from "./_core/sdk";
 
 // Import game systems
 import * as ageVerification from "./ageVerification";
@@ -23,6 +26,96 @@ export const appRouter = router({
 
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
+    
+    login: publicProcedure
+      .input(z.object({ username: z.string().min(3), password: z.string().min(6) }))
+      .mutation(async ({ ctx, input }) => {
+        // Find user by username
+        const dbConn = await db.getDb();
+        if (!dbConn) throw new Error("Database not available");
+        
+        const users = await dbConn.execute(
+          "SELECT id, passwordHash, name, email FROM users WHERE username = ? LIMIT 1",
+          [input.username]
+        );
+        
+        if (!users || !Array.isArray(users) || users.length === 0) {
+          throw new Error("Invalid username or password");
+        }
+        
+        const user = users[0] as any;
+        const hash = crypto.createHash("sha256").update(input.password).digest("hex");
+        
+        if (user.passwordHash !== hash) {
+          throw new Error("Invalid username or password");
+        }
+        
+        // Create session token using SDK
+        const sessionToken = await sdk.createSessionToken(String(user.id), {
+          name: user.name || input.username,
+          expiresInMs: ONE_YEAR_MS,
+        });
+        
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+        
+        return { success: true, username: input.username };
+      }),
+    
+    register: publicProcedure
+      .input(z.object({ 
+        username: z.string().min(3).max(64), 
+        password: z.string().min(6),
+        email: z.string().email().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const dbConn = await db.getDb();
+        if (!dbConn) throw new Error("Database not available");
+        
+        // Check if username exists
+        const existing = await dbConn.execute(
+          "SELECT id FROM users WHERE username = ? LIMIT 1",
+          [input.username]
+        );
+        
+        if (existing && Array.isArray(existing) && existing.length > 0) {
+          throw new Error("Username already taken");
+        }
+        
+        // Create password hash
+        const hash = crypto.createHash("sha256").update(input.password).digest("hex");
+        const openId = `usr_${crypto.randomUUID()}`;
+        
+        // Insert new user
+        await dbConn.execute(
+          "INSERT INTO users (openId, username, passwordHash, email, name, loginMethod, lastSignedIn) VALUES (?, ?, ?, ?, ?, ?, NOW())",
+          [openId, input.username, hash, input.email || null, input.username, "password"]
+        );
+        
+        // Get the newly created user
+        const users = await dbConn.execute(
+          "SELECT id FROM users WHERE username = ? LIMIT 1",
+          [input.username]
+        );
+        
+        if (!users || !Array.isArray(users) || users.length === 0) {
+          throw new Error("Failed to create user");
+        }
+        
+        const userId = (users[0] as any).id;
+        
+        // Create session token
+        const sessionToken = await sdk.createSessionToken(String(userId), {
+          name: input.username,
+          expiresInMs: ONE_YEAR_MS,
+        });
+        
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+        
+        return { success: true, username: input.username };
+      }),
+    
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });

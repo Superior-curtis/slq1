@@ -1,4 +1,3 @@
-import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { TRPCClientError } from "@trpc/client";
 import { useCallback, useEffect, useMemo } from "react";
@@ -9,7 +8,7 @@ type UseAuthOptions = {
 };
 
 export function useAuth(options?: UseAuthOptions) {
-  const { redirectOnUnauthenticated = false, redirectPath = getLoginUrl() } =
+  const { redirectOnUnauthenticated = false, redirectPath = "/login" } =
     options ?? {};
   const utils = trpc.useUtils();
 
@@ -18,11 +17,37 @@ export function useAuth(options?: UseAuthOptions) {
     refetchOnWindowFocus: false,
   });
 
+  const loginMutation = trpc.auth.login.useMutation({
+    onSuccess: () => {
+      utils.auth.me.invalidate();
+    },
+  });
+
+  const registerMutation = trpc.auth.register.useMutation({
+    onSuccess: () => {
+      utils.auth.me.invalidate();
+    },
+  });
+
   const logoutMutation = trpc.auth.logout.useMutation({
     onSuccess: () => {
       utils.auth.me.setData(undefined, null);
     },
   });
+
+  const login = useCallback(
+    async (username: string, password: string) => {
+      return loginMutation.mutateAsync({ username, password });
+    },
+    [loginMutation]
+  );
+
+  const register = useCallback(
+    async (username: string, password: string, email?: string) => {
+      return registerMutation.mutateAsync({ username, password, email });
+    },
+    [registerMutation]
+  );
 
   const logout = useCallback(async () => {
     try {
@@ -43,7 +68,7 @@ export function useAuth(options?: UseAuthOptions) {
 
   const state = useMemo(() => {
     localStorage.setItem(
-      "manus-runtime-user-info",
+      "user-info",
       JSON.stringify(meQuery.data)
     );
     return {
@@ -80,5 +105,9 @@ export function useAuth(options?: UseAuthOptions) {
     ...state,
     refresh: () => meQuery.refetch(),
     logout,
+    login,
+    register,
+    isLoggingIn: loginMutation.isPending,
+    isRegistering: registerMutation.isPending,
   };
 }

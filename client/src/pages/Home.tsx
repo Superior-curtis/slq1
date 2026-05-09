@@ -1,7 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { getLoginUrl } from "@/const";
 import { Link } from "wouter";
 import { Zap, Users, Trophy, Flame, Bell } from "lucide-react";
 
@@ -64,11 +63,11 @@ export default function Home() {
                 </Link>
               </>
             ) : (
-              <a href={getLoginUrl()}>
+              <Link href="/login">
                 <Button className="bg-orange-500 hover:bg-orange-600 text-black font-bold">
                   Login to Play
                 </Button>
-              </a>
+              </Link>
             )}
           </div>
         </div>

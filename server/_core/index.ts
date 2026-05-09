@@ -32,7 +32,41 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
   throw new Error(`No available port found starting from ${startPort}`);
 }
 
+async function ensureDemoUserExists() {
+  const db = await require("../db").getDb();
+  if (!db) return;
+
+  try {
+    // Check if demo user exists
+    const existing = await db.execute(
+      "SELECT id FROM users WHERE username = 'demo' LIMIT 1"
+    );
+
+    if (!existing || !Array.isArray(existing) || existing.length === 0) {
+      // Create demo user
+      const crypto = require("crypto");
+      const passwordHash = crypto
+        .createHash("sha256")
+        .update("demo123")
+        .digest("hex");
+      const openId = `usr_demo_${crypto.randomUUID()}`;
+
+      await db.execute(
+        "INSERT INTO users (openId, username, passwordHash, name, email, loginMethod, lastSignedIn, role) VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)",
+        [openId, "demo", passwordHash, "Demo User", "demo@example.com", "password", "user"]
+      );
+
+      console.log("[Setup] Demo user created successfully");
+    }
+  } catch (error) {
+    console.error("[Setup] Failed to create demo user:", error);
+  }
+}
+
 async function startServer() {
+  // Create demo user on startup
+  await ensureDemoUserExists();
+
   const app = express();
   const server = createServer(app);
   // Configure body parser with larger size limit for file uploads

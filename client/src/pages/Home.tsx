@@ -152,13 +152,13 @@ export default function Home() {
                 </Link>
               </>
             ) : (
-              <a href={getLoginUrl()}>
+              <Link href="/login">
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                   <Button className="bg-orange-500 hover:bg-orange-600 text-black font-bold px-8 py-6 text-lg">
                     立即Login to Play
                   </Button>
                 </motion.div>
-              </a>
+              </Link>
             )}
           </motion.div>
 

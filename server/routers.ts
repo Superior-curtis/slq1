@@ -181,6 +181,24 @@ export const appRouter = router({
         return room;
       }),
 
+    joinRoomByCode: protectedProcedure
+      .input(z.object({ roomCode: z.string().min(4) }))
+      .mutation(async ({ ctx, input }) => {
+        const normalizedCode = input.roomCode.trim().toUpperCase();
+        const room = await db.getGameRoomByCode(normalizedCode);
+
+        if (!room) {
+          throw new Error("Room not found");
+        }
+
+        const joined = await gameLogic.addPlayerToRoom(room.id, ctx.user.id);
+        if (!joined) {
+          throw new Error("Unable to join room");
+        }
+
+        return room;
+      }),
+
     getContent: publicProcedure
       .input(
         z.object({
@@ -221,8 +239,15 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ ctx, input }) => {
+        const room = await db.getGameRoomById(input.roomId);
+        const correctAnswers = Array.isArray(room?.currentContent?.correctAnswers) ? room.currentContent.correctAnswers : [];
+
+        if (correctAnswers.length === 0) {
+          throw new Error("Game content is not ready yet");
+        }
+
         // Validate answer using LLM
-        const isCorrect = await gameLogic.validateAnswerWithLLM(input.answer, [input.answer]);
+        const isCorrect = await gameLogic.validateAnswerWithLLM(input.answer, correctAnswers);
         const score = gameLogic.calculateScore(input.responseTime, isCorrect);
 
         // Update player score

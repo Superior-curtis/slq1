@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
-import { ZERO_CARD_MODE } from "@/lib/zeroCard";
+import { BACKEND_URL, ZERO_CARD_MODE } from "@/lib/zeroCard";
 
 interface GameRoomState {
   roomId: string;
@@ -17,7 +17,7 @@ interface ChatMessage {
   timestamp: number;
 }
 
-export function useGameSocket(roomId?: string) {
+export function useGameSocket(roomId?: string, userName?: string) {
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [gameState, setGameState] = useState<GameRoomState | null>(null);
@@ -53,7 +53,7 @@ export function useGameSocket(roomId?: string) {
     }
 
     // 連接到 Socket.IO 伺服器
-    const socket = io(window.location.origin, {
+    const socket = io(BACKEND_URL || window.location.origin, {
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
@@ -68,7 +68,7 @@ export function useGameSocket(roomId?: string) {
 
       // 如果有 roomId，加入房間
       if (roomId) {
-        socket.emit("joinGameRoom", { roomId });
+        socket.emit("joinGameRoom", { roomId, userName });
       }
     });
 
@@ -114,7 +114,7 @@ export function useGameSocket(roomId?: string) {
     return () => {
       socket.disconnect();
     };
-  }, [roomId]);
+  }, [roomId, userName]);
 
   const sendChatMessage = (message: string) => {
     if (ZERO_CARD_MODE) {

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Loader2, Copy, Check, Send } from "lucide-react";
 import { toast } from "sonner";
 import { useGameSocket } from "@/hooks/useGameSocket";
@@ -36,15 +36,29 @@ export default function GameRoom(props: any = {}) {
   const [score, setScore] = useState(0);
   const [round, setRound] = useState(1);
   const [copied, setCopied] = useState(false);
+  const startEmittedRoomIdRef = useRef<string | null>(null);
 
   // Socket.IO
-  const { isConnected, chatMessages, players, sendChatMessage } = useGameSocket(roomId || undefined);
+  const { isConnected, chatMessages, players, sendChatMessage, startGame } = useGameSocket(roomId || undefined, user?.name);
   const [chatInput, setChatInput] = useState("");
 
   // API queries
   const { data: categoriesData } = trpc.content.getCategories.useQuery();
   const categories = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []);
-  const playableCategories = categories.filter((category: string) => category !== "all");
+  const fallbackCategories = [
+    "trending",
+    "famous-actor",
+    "pornstars",
+    "amateur",
+    "anal",
+    "asian",
+    "milf",
+    "teen",
+    "threesome",
+  ];
+  const playableCategories = Array.from(
+    new Set([...fallbackCategories, ...categories].filter((category) => category !== "all"))
+  );
 
   useEffect(() => {
     if (!selectedCategory && playableCategories.length > 0) {
@@ -61,6 +75,7 @@ export default function GameRoom(props: any = {}) {
   );
 
   const createRoomMutation = trpc.game.createRoom.useMutation();
+  const joinRoomByCodeMutation = trpc.game.joinRoomByCode.useMutation();
   const submitAnswerMutation = trpc.game.submitAnswer.useMutation();
   const joinQueueMutation = trpc.matchmaking.joinQueue.useMutation();
   const leaveQueueMutation = trpc.matchmaking.leaveQueue.useMutation();
@@ -94,51 +109,19 @@ export default function GameRoom(props: any = {}) {
     }
   }, [round, showAnswer, gameStarted, refetchContent]);
 
-  // Create room on mount
   useEffect(() => {
-    if (!roomId && isAuthenticated && gameStarted) {
-      const newRoomId = `room_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-      setRoomId(newRoomId);
+    if (!gameStarted || !roomId || !isConnected) return;
+    if (startEmittedRoomIdRef.current === roomId) return;
 
-      createRoomMutation.mutate(
-        {
-          gameMode: (gameMode as "picture" | "video"),
-          roomType: (gameType as "random" | "bot" | "duel"),
-          category: selectedCategory !== "all" ? selectedCategory : undefined,
-        },
-        {
-          onSuccess: (data) => {
-            if (data) {
-              setRoomCode(data.roomCode);
-              setGameStartTime(Date.now());
-              toast.success("Game room created!");
-            }
-          },
-          onError: (error) => {
-            toast.error("Failed to create room");
-            setGameStarted(false);
-          },
-        }
-      );
-    }
-  }, [gameStarted, isAuthenticated]);
+    startEmittedRoomIdRef.current = roomId;
+    startGame();
+  }, [gameStarted, isConnected, roomId, startGame]);
 
   const handleSubmitAnswer = () => {
     if (!roomId) return;
 
     const time = Date.now() - gameStartTime;
     setResponseTime(time);
-
-    const currentContent = contentData?.data?.[0];
-    const correctAnswers = currentContent?.actors && currentContent.actors.length > 0 
-      ? currentContent.actors 
-      : currentContent?.correctAnswers && currentContent.correctAnswers.length > 0
-      ? currentContent.correctAnswers
-      : [currentContent?.title || "Unknown"];
-
-    const isAnswerCorrect = correctAnswers.some(
-      (correct: string) => correct.toLowerCase().trim() === answer.toLowerCase().trim()
-    );
 
     submitAnswerMutation.mutate(
       {
@@ -148,14 +131,14 @@ export default function GameRoom(props: any = {}) {
       },
       {
         onSuccess: (data) => {
-          setIsCorrect(isAnswerCorrect);
-          setScore((prev) => prev + (isAnswerCorrect ? 100 : 0));
+          setIsCorrect(data.isCorrect);
+          setScore((prev) => prev + data.score);
           setShowAnswer(true);
 
-          if (isAnswerCorrect) {
-            toast.success(`✅ Correct! +100 points`);
+          if (data.isCorrect) {
+            toast.success(`✅ Correct! +${data.score} points`);
           } else {
-            toast.error(`❌ Wrong. Answer: ${correctAnswers.join(" / ")}`);
+            toast.error("❌ Wrong answer. Try the next round.");
           }
         },
         onError: () => {
@@ -179,6 +162,53 @@ export default function GameRoom(props: any = {}) {
     if (!chatInput.trim()) return;
     sendChatMessage(chatInput);
     setChatInput("");
+  };
+
+  const openRoom = async (roomType: "random" | "bot" | "duel") => {
+    const createdRoom = await createRoomMutation.mutateAsync({
+      gameMode: (gameMode as "picture" | "video"),
+      roomType,
+      category: selectedCategory && selectedCategory !== "all" ? selectedCategory : undefined,
+    });
+
+    setRoomId(createdRoom.id);
+    setRoomCode(createdRoom.roomCode);
+    setGameStarted(true);
+    setTimeLeft(30);
+    setGameStartTime(Date.now());
+
+    return createdRoom;
+  };
+
+  const handlePrimaryAction = async () => {
+    try {
+      if (gameType === "duel" && duelCode.trim()) {
+        const room = await joinRoomByCodeMutation.mutateAsync({ roomCode: duelCode.trim().toUpperCase() });
+        setRoomId(room.id);
+        setRoomCode(room.roomCode);
+        setGameStarted(true);
+        setTimeLeft(30);
+        setGameStartTime(Date.now());
+        toast.success(`Joined duel room ${room.roomCode}`);
+        return;
+      }
+
+      const room = await openRoom(gameType);
+
+      if (gameType === "random") {
+        try {
+          await joinQueueMutation.mutateAsync();
+          toast.info(`Joined queue, room ${room.roomCode} is ready`);
+        } catch {
+          toast.warning(`Room ${room.roomCode} created, but queue join failed`);
+        }
+      }
+
+      toast.success(`Room ready: ${room.roomCode}`);
+    } catch (error) {
+      toast.error(gameType === "random" ? "Failed to join queue" : "Failed to create room");
+      setGameStarted(false);
+    }
   };
 
   const copyRoomCode = () => {
@@ -214,7 +244,7 @@ export default function GameRoom(props: any = {}) {
     <div className="min-h-screen bg-black text-white">
       {/* Navigation */}
       <div className="bg-gradient-to-r from-orange-500/20 to-orange-500/5 border-b border-orange-500/30 p-4">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
+        <div className="max-w-7xl mx-auto flex flex-wrap gap-3 justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-orange-400">
               {gameMode === "video" ? "🎬 Video Trivia" : "🖼️ Picture Trivia"}
@@ -224,9 +254,20 @@ export default function GameRoom(props: any = {}) {
               {isConnected && <span className="ml-2 text-green-400">● Connected</span>}
             </p>
           </div>
-          <Button onClick={() => navigate("/dashboard")} variant="outline" className="border-orange-500/30">
-            Back
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => navigate("/lobby")} variant="outline" className="border-orange-500/30">
+              Lobby
+            </Button>
+            <Button onClick={() => navigate("/leaderboard")} variant="outline" className="border-orange-500/30">
+              Leaderboard
+            </Button>
+            <Button onClick={() => navigate("/profile")} variant="outline" className="border-orange-500/30">
+              Profile
+            </Button>
+            <Button onClick={() => navigate("/dashboard")} variant="outline" className="border-orange-500/30">
+              Back
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -290,32 +331,8 @@ export default function GameRoom(props: any = {}) {
               )}
 
               <Button
-                onClick={() => {
-                  if (gameType === "random") {
-                    joinQueueMutation.mutate(undefined, {
-                      onSuccess: (data) => {
-                        if (data.success) {
-                          toast.info(`Joined queue! Position: ${data.queuePosition}/${data.queueSize}`);
-                        }
-                      },
-                      onError: () => {
-                        toast.error("Failed to join queue");
-                      },
-                    });
-                  } else if (gameType === "duel") {
-                    const normalizedCode = duelCode.trim().toUpperCase();
-                    if (normalizedCode && normalizedCode.length < 4) {
-                      toast.error("Please enter a valid duel code");
-                      return;
-                    }
-                    const roomCodeToUse = normalizedCode || Math.random().toString(36).slice(2, 8).toUpperCase();
-                    setRoomCode(roomCodeToUse);
-                    setGameStarted(true);
-                  } else {
-                    setGameStarted(true);
-                  }
-                }}
-                disabled={gameType === "random" && joinQueueMutation.isPending}
+                onClick={handlePrimaryAction}
+                disabled={joinQueueMutation.isPending || createRoomMutation.isPending || joinRoomByCodeMutation.isPending}
                 className="w-full bg-orange-500 hover:bg-orange-600 text-black font-bold disabled:opacity-50"
               >
                 {gameType === "random" && joinQueueMutation.isPending ? (

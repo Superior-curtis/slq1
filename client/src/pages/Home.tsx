@@ -51,6 +51,21 @@ export default function Home() {
                 <span className="text-sm text-gray-400">
                   Welcome, {user?.name}
                 </span>
+                <Link href="/lobby">
+                  <Button variant="ghost" className="text-orange-500 hover:bg-orange-500/10">
+                    Lobby
+                  </Button>
+                </Link>
+                <Link href="/leaderboard">
+                  <Button variant="ghost" className="text-orange-500 hover:bg-orange-500/10">
+                    Leaderboard
+                  </Button>
+                </Link>
+                <Link href="/profile">
+                  <Button variant="ghost" className="text-orange-500 hover:bg-orange-500/10">
+                    Profile
+                  </Button>
+                </Link>
                 <Link href="/notifications">
                   <Button variant="ghost" className="text-orange-500 hover:bg-orange-500/10">
                     <Bell className="w-4 h-4" />

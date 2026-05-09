@@ -52,6 +52,11 @@ export default function Dashboard() {
           </Link>
 
           <div className="flex items-center gap-4">
+            <Link href="/lobby">
+              <Button variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-500/10">
+                Lobby
+              </Button>
+            </Link>
             <span className="text-sm text-gray-400">{user?.name}</span>
             <Button
               onClick={handleLogout}

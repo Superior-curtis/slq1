@@ -270,8 +270,26 @@ class SDKServer {
     const signedInAt = new Date();
     let user = await db.getUserByOpenId(sessionUserId);
 
-    // If user not in DB, sync from OAuth server automatically
+    // If user not in DB, sync from OAuth server automatically when persistence exists.
     if (!user) {
+      if (!ENV.databaseUrl) {
+        await db.upsertUser({
+          openId: sessionUserId,
+          name: session.name || "Player",
+          loginMethod: "password",
+          lastSignedIn: signedInAt,
+        });
+        user = await db.getUserByOpenId(sessionUserId);
+      }
+
+      if (user) {
+        await db.upsertUser({
+          openId: user.openId,
+          lastSignedIn: signedInAt,
+        });
+        return user;
+      }
+
       try {
         const userInfo = await this.getUserInfoWithJwt(sessionCookie ?? "");
         await db.upsertUser({

@@ -20,6 +20,82 @@ import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
+type MemoryUser = InsertUser & {
+  id: number;
+  username?: string | null;
+  passwordHash?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  lastSignedIn: Date;
+};
+
+const memoryUsers: MemoryUser[] = [];
+let memoryUserId = 1;
+const memoryGameRooms: GameRoom[] = [];
+const memoryGameHistory: GameHistory[] = [];
+const memoryLeaderboard: Leaderboard[] = [];
+const memoryNotifications: Notification[] = [];
+const memoryContentCache: ContentCache[] = [];
+const memoryPlayerConnections: PlayerConnection[] = [];
+
+function now() {
+  return new Date();
+}
+
+function toDate(value: unknown, fallback = now()) {
+  if (value instanceof Date) return value;
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  return fallback;
+}
+
+function upsertMemoryUser(user: InsertUser): MemoryUser {
+  const existing = memoryUsers.find(
+    (entry) => entry.openId === user.openId || (user.username && entry.username?.toLowerCase() === user.username.toLowerCase())
+  );
+
+  const next: MemoryUser = {
+    id: existing?.id ?? memoryUserId++,
+    openId: user.openId,
+    username: user.username ?? existing?.username ?? null,
+    passwordHash: user.passwordHash ?? existing?.passwordHash ?? null,
+    name: user.name ?? existing?.name ?? null,
+    email: user.email ?? existing?.email ?? null,
+    loginMethod: user.loginMethod ?? existing?.loginMethod ?? null,
+    role: user.role ?? existing?.role ?? "user",
+    totalScore: user.totalScore ?? existing?.totalScore ?? 0,
+    gamesPlayed: user.gamesPlayed ?? existing?.gamesPlayed ?? 0,
+    gamesWon: user.gamesWon ?? existing?.gamesWon ?? 0,
+    correctAnswers: user.correctAnswers ?? existing?.correctAnswers ?? 0,
+    totalAnswers: user.totalAnswers ?? existing?.totalAnswers ?? 0,
+    averageResponseTime: user.averageResponseTime ?? existing?.averageResponseTime ?? "0",
+    createdAt: existing?.createdAt ?? now(),
+    updatedAt: now(),
+    lastSignedIn: user.lastSignedIn ? toDate(user.lastSignedIn) : existing?.lastSignedIn ?? now(),
+  };
+
+  const index = memoryUsers.findIndex((entry) => entry.id === next.id || entry.openId === next.openId);
+  if (index >= 0) {
+    memoryUsers[index] = next;
+  } else {
+    memoryUsers.unshift(next);
+  }
+
+  return next;
+}
+
+function upsertById<T extends { id: string | number }>(collection: T[], item: T) {
+  const index = collection.findIndex((entry) => entry.id === item.id);
+  if (index >= 0) {
+    collection[index] = item;
+  } else {
+    collection.unshift(item);
+  }
+  return item;
+}
+
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
@@ -33,6 +109,16 @@ export async function getDb() {
   return _db;
 }
 
+export async function getUserByUsername(username: string) {
+  const db = await getDb();
+  if (db) {
+    const result = await db.select().from(users).where(eq(users.username, username)).limit(1);
+    return result.length > 0 ? result[0] : undefined;
+  }
+
+  return memoryUsers.find((user) => user.username?.toLowerCase() === username.toLowerCase());
+}
+
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) {
     throw new Error("User openId is required for upsert");
@@ -40,7 +126,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot upsert user: database not available");
+    upsertMemoryUser(user);
     return;
   }
 
@@ -95,8 +181,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot get user: database not available");
-    return undefined;
+    return memoryUsers.find((user) => user.openId === openId);
   }
 
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
@@ -106,7 +191,7 @@ export async function getUserByOpenId(openId: string) {
 
 export async function getUserById(id: number) {
   const db = await getDb();
-  if (!db) return undefined;
+  if (!db) return memoryUsers.find((user) => user.id === id);
 
   const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
   return result.length > 0 ? result[0] : undefined;
@@ -115,14 +200,22 @@ export async function getUserById(id: number) {
 // Game Room queries
 export async function createGameRoom(room: typeof gameRooms.$inferInsert) {
   const db = await getDb();
-  if (!db) throw new Error("Database not available");
+  if (!db) {
+    upsertById(memoryGameRooms, {
+      ...(room as GameRoom),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      finishedAt: null,
+    } as GameRoom);
+    return;
+  }
 
   await db.insert(gameRooms).values(room);
 }
 
 export async function getGameRoomById(roomId: string) {
   const db = await getDb();
-  if (!db) return undefined;
+  if (!db) return memoryGameRooms.find((room) => room.id === roomId);
 
   const result = await db.select().from(gameRooms).where(eq(gameRooms.id, roomId)).limit(1);
   return result.length > 0 ? result[0] : undefined;
@@ -130,7 +223,7 @@ export async function getGameRoomById(roomId: string) {
 
 export async function getGameRoomByCode(roomCode: string) {
   const db = await getDb();
-  if (!db) return undefined;
+  if (!db) return memoryGameRooms.find((room) => room.roomCode === roomCode);
 
   const result = await db.select().from(gameRooms).where(eq(gameRooms.roomCode, roomCode)).limit(1);
   return result.length > 0 ? result[0] : undefined;
@@ -138,7 +231,11 @@ export async function getGameRoomByCode(roomCode: string) {
 
 export async function getWaitingGameRooms(gameMode: 'picture' | 'video', limit: number = 5) {
   const db = await getDb();
-  if (!db) return [];
+  if (!db) {
+    return memoryGameRooms
+      .filter((room) => room.status === 'waiting' && room.gameMode === gameMode && room.roomType === 'random')
+      .slice(0, limit);
+  }
 
   return await db
     .select()
@@ -155,7 +252,17 @@ export async function getWaitingGameRooms(gameMode: 'picture' | 'video', limit: 
 
 export async function updateGameRoom(roomId: string, updates: Partial<typeof gameRooms.$inferInsert>) {
   const db = await getDb();
-  if (!db) throw new Error("Database not available");
+  if (!db) {
+    const index = memoryGameRooms.findIndex((room) => room.id === roomId);
+    if (index >= 0) {
+      memoryGameRooms[index] = {
+        ...memoryGameRooms[index],
+        ...(updates as Partial<GameRoom>),
+        updatedAt: new Date(),
+      } as GameRoom;
+    }
+    return;
+  }
 
   await db.update(gameRooms).set(updates).where(eq(gameRooms.id, roomId));
 }
@@ -163,14 +270,20 @@ export async function updateGameRoom(roomId: string, updates: Partial<typeof gam
 // Game History queries
 export async function createGameHistory(history: typeof gameHistory.$inferInsert) {
   const db = await getDb();
-  if (!db) throw new Error("Database not available");
+  if (!db) {
+    upsertById(memoryGameHistory, {
+      ...(history as GameHistory),
+      createdAt: history.createdAt ? new Date(history.createdAt as any) : new Date(),
+    } as GameHistory);
+    return;
+  }
 
   await db.insert(gameHistory).values(history);
 }
 
 export async function getUserGameHistory(userId: number, limit: number = 20) {
   const db = await getDb();
-  if (!db) return [];
+  if (!db) return memoryGameHistory.filter((history) => history.playerId === userId).slice(0, limit);
 
   return await db
     .select()
@@ -183,7 +296,7 @@ export async function getUserGameHistory(userId: number, limit: number = 20) {
 // Leaderboard queries
 export async function getTopLeaderboard(limit: number = 100) {
   const db = await getDb();
-  if (!db) return [];
+  if (!db) return memoryLeaderboard.slice().sort((a, b) => a.rank - b.rank).slice(0, limit);
 
   return await db
     .select()
@@ -194,7 +307,7 @@ export async function getTopLeaderboard(limit: number = 100) {
 
 export async function getUserLeaderboardRank(userId: number) {
   const db = await getDb();
-  if (!db) return undefined;
+  if (!db) return memoryLeaderboard.find((entry) => entry.userId === userId);
 
   const result = await db
     .select()
@@ -212,7 +325,20 @@ export async function updateLeaderboard(userId: number, stats: {
   winRate: number;
 }) {
   const db = await getDb();
-  if (!db) throw new Error("Database not available");
+  if (!db) {
+    const rank = memoryUsers.filter((user) => Number(user.totalScore || 0) > stats.totalScore).length + 1;
+    upsertById(memoryLeaderboard, {
+      id: memoryLeaderboard.find((entry) => entry.userId === userId)?.id ?? memoryLeaderboard.length + 1,
+      userId,
+      rank,
+      totalScore: stats.totalScore,
+      gamesPlayed: stats.gamesPlayed,
+      gamesWon: stats.gamesWon,
+      winRate: String(stats.winRate) as any,
+      updatedAt: new Date(),
+    } as Leaderboard);
+    return;
+  }
 
   // Get current rank
   const topPlayers = await db
@@ -247,14 +373,20 @@ export async function updateLeaderboard(userId: number, stats: {
 // Notification queries
 export async function createNotification(notification: typeof notifications.$inferInsert) {
   const db = await getDb();
-  if (!db) throw new Error("Database not available");
+  if (!db) {
+    upsertById(memoryNotifications, {
+      ...(notification as Notification),
+      createdAt: notification.createdAt ? new Date(notification.createdAt as any) : new Date(),
+    } as Notification);
+    return;
+  }
 
   await db.insert(notifications).values(notification);
 }
 
 export async function getUserNotifications(userId: number, limit: number = 50) {
   const db = await getDb();
-  if (!db) return [];
+  if (!db) return memoryNotifications.filter((notification) => notification.userId === userId).slice(0, limit);
 
   return await db
     .select()
@@ -266,14 +398,25 @@ export async function getUserNotifications(userId: number, limit: number = 50) {
 
 export async function markNotificationAsRead(notificationId: string) {
   const db = await getDb();
-  if (!db) throw new Error("Database not available");
+  if (!db) {
+    const index = memoryNotifications.findIndex((notification) => notification.id === notificationId);
+    if (index >= 0) memoryNotifications[index] = { ...memoryNotifications[index], isRead: true };
+    return;
+  }
 
   await db.update(notifications).set({ isRead: true }).where(eq(notifications.id, notificationId));
 }
 
 export async function markAllNotificationsAsRead(userId: number) {
   const db = await getDb();
-  if (!db) throw new Error("Database not available");
+  if (!db) {
+    for (let index = 0; index < memoryNotifications.length; index++) {
+      if (memoryNotifications[index].userId === userId) {
+        memoryNotifications[index] = { ...memoryNotifications[index], isRead: true };
+      }
+    }
+    return;
+  }
 
   await db.update(notifications).set({ isRead: true }).where(eq(notifications.userId, userId));
 }
@@ -281,7 +424,7 @@ export async function markAllNotificationsAsRead(userId: number) {
 // Content Cache queries
 export async function getCachedContent(contentId: string) {
   const db = await getDb();
-  if (!db) return undefined;
+  if (!db) return memoryContentCache.find((content) => content.id === contentId);
 
   const result = await db
     .select()
@@ -294,14 +437,21 @@ export async function getCachedContent(contentId: string) {
 
 export async function cacheContent(content: typeof contentCache.$inferInsert) {
   const db = await getDb();
-  if (!db) throw new Error("Database not available");
+  if (!db) {
+    upsertById(memoryContentCache, {
+      ...(content as ContentCache),
+      cachedAt: content.cachedAt ? new Date(content.cachedAt as any) : new Date(),
+      expiresAt: content.expiresAt ? new Date(content.expiresAt as any) : null,
+    } as ContentCache);
+    return;
+  }
 
   await db.insert(contentCache).values(content);
 }
 
 export async function getRandomContent(contentType: 'picture' | 'video') {
   const db = await getDb();
-  if (!db) return undefined;
+  if (!db) return memoryContentCache.find((content) => content.contentType === contentType);
 
   const result = await db
     .select()
@@ -316,14 +466,21 @@ export async function getRandomContent(contentType: 'picture' | 'video') {
 // Player Connection queries
 export async function createPlayerConnection(connection: typeof playerConnections.$inferInsert) {
   const db = await getDb();
-  if (!db) throw new Error("Database not available");
+  if (!db) {
+    upsertById(memoryPlayerConnections, {
+      ...(connection as PlayerConnection),
+      connectedAt: connection.connectedAt ? new Date(connection.connectedAt as any) : new Date(),
+      lastActivityAt: connection.lastActivityAt ? new Date(connection.lastActivityAt as any) : new Date(),
+    } as PlayerConnection);
+    return;
+  }
 
   await db.insert(playerConnections).values(connection);
 }
 
 export async function getPlayerConnection(userId: number) {
   const db = await getDb();
-  if (!db) return undefined;
+  if (!db) return memoryPlayerConnections.find((connection) => connection.userId === userId);
 
   const result = await db
     .select()
@@ -336,14 +493,31 @@ export async function getPlayerConnection(userId: number) {
 
 export async function updatePlayerConnection(userId: number, updates: Partial<typeof playerConnections.$inferInsert>) {
   const db = await getDb();
-  if (!db) throw new Error("Database not available");
+  if (!db) {
+    const index = memoryPlayerConnections.findIndex((connection) => connection.userId === userId);
+    if (index >= 0) {
+      memoryPlayerConnections[index] = {
+        ...memoryPlayerConnections[index],
+        ...(updates as Partial<PlayerConnection>),
+        lastActivityAt: new Date(),
+      } as PlayerConnection;
+    }
+    return;
+  }
 
   await db.update(playerConnections).set(updates).where(eq(playerConnections.userId, userId));
 }
 
 export async function deletePlayerConnection(userId: number) {
   const db = await getDb();
-  if (!db) throw new Error("Database not available");
+  if (!db) {
+    for (let index = memoryPlayerConnections.length - 1; index >= 0; index--) {
+      if (memoryPlayerConnections[index].userId === userId) {
+        memoryPlayerConnections.splice(index, 1);
+      }
+    }
+    return;
+  }
 
   await db.delete(playerConnections).where(eq(playerConnections.userId, userId));
 }

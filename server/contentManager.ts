@@ -88,6 +88,25 @@ export const AVAILABLE_CATEGORIES = [
   "webcam",
 ];
 
+const POPULAR_CATEGORIES = [
+  "trending",
+  "amateur",
+  "anal",
+  "asian",
+  "blonde",
+  "blowjob",
+  "brunette",
+  "creampie",
+  "cumshot",
+  "ebony",
+  "fetish",
+  "milf",
+  "pov",
+  "teen",
+  "threesome",
+  "pornstar",
+];
+
 /**
  * Add content to cache
  */
@@ -156,7 +175,8 @@ export function getRandomContents(count: number, type?: "picture" | "video", cat
  */
 function generateMockContent(type?: "picture" | "video", category?: string): Content {
   const actors = ["Actor A", "Actor B", "Actor C"];
-  const categories = [category || "amateur"];
+  const fallbackCategory = category || POPULAR_CATEGORIES[Math.floor(Math.random() * POPULAR_CATEGORIES.length)] || "amateur";
+  const categories = [fallbackCategory];
 
   return {
     id: nanoid(),

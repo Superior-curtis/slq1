@@ -30,20 +30,25 @@ export const appRouter = router({
     login: publicProcedure
       .input(z.object({ username: z.string().min(3), password: z.string().min(6) }))
       .mutation(async ({ ctx, input }) => {
-        // Find user by username
         const dbConn = await db.getDb();
-        if (!dbConn) throw new Error("Database not available");
-        
-        const users = await dbConn.execute(
-          "SELECT id, passwordHash, name, email FROM users WHERE username = ? LIMIT 1",
-          [input.username]
-        );
-        
-        if (!users || !Array.isArray(users) || users.length === 0) {
+        let user: any = null;
+
+        if (dbConn) {
+          const users = await dbConn.execute(
+            "SELECT id, openId, passwordHash, name, email, username FROM users WHERE username = ? LIMIT 1",
+            [input.username]
+          );
+
+          if (users && Array.isArray(users) && users.length > 0) {
+            user = users[0] as any;
+          }
+        } else {
+          user = await db.getUserByUsername(input.username);
+        }
+
+        if (!user) {
           throw new Error("Invalid username or password");
         }
-        
-        const user = users[0] as any;
         const hash = crypto.createHash("sha256").update(input.password).digest("hex");
         
         if (user.passwordHash !== hash) {
@@ -70,49 +75,72 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         const dbConn = await db.getDb();
-        if (!dbConn) throw new Error("Database not available");
-        
-        // Check if username exists
-        const existing = await dbConn.execute(
-          "SELECT id FROM users WHERE username = ? LIMIT 1",
-          [input.username]
-        );
-        
-        if (existing && Array.isArray(existing) && existing.length > 0) {
-          throw new Error("Username already taken");
+        if (dbConn) {
+          const existing = await dbConn.execute(
+            "SELECT id FROM users WHERE username = ? LIMIT 1",
+            [input.username]
+          );
+
+          if (existing && Array.isArray(existing) && existing.length > 0) {
+            throw new Error("Username already taken");
+          }
+        } else {
+          const existing = await db.getUserByUsername(input.username);
+          if (existing) {
+            throw new Error("Username already taken");
+          }
         }
-        
+
         // Create password hash
         const hash = crypto.createHash("sha256").update(input.password).digest("hex");
         const openId = `usr_${crypto.randomUUID()}`;
-        
-        // Insert new user
-        await dbConn.execute(
-          "INSERT INTO users (openId, username, passwordHash, email, name, loginMethod, lastSignedIn) VALUES (?, ?, ?, ?, ?, ?, NOW())",
-          [openId, input.username, hash, input.email || null, input.username, "password"]
-        );
-        
-        // Get the newly created user
-        const users = await dbConn.execute(
-          "SELECT id FROM users WHERE username = ? LIMIT 1",
-          [input.username]
-        );
-        
-        if (!users || !Array.isArray(users) || users.length === 0) {
-          throw new Error("Failed to create user");
+
+        if (dbConn) {
+          await dbConn.execute(
+            "INSERT INTO users (openId, username, passwordHash, email, name, loginMethod, lastSignedIn) VALUES (?, ?, ?, ?, ?, ?, NOW())",
+            [openId, input.username, hash, input.email || null, input.username, "password"]
+          );
+
+          const users = await dbConn.execute(
+            "SELECT id FROM users WHERE username = ? LIMIT 1",
+            [input.username]
+          );
+
+          if (!users || !Array.isArray(users) || users.length === 0) {
+            throw new Error("Failed to create user");
+          }
+
+          const userId = (users[0] as any).id;
+
+          const sessionToken = await sdk.createSessionToken(String(userId), {
+            name: input.username,
+            expiresInMs: ONE_YEAR_MS,
+          });
+
+          const cookieOptions = getSessionCookieOptions(ctx.req);
+          ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+
+          return { success: true, username: input.username };
         }
-        
-        const userId = (users[0] as any).id;
-        
-        // Create session token
-        const sessionToken = await sdk.createSessionToken(String(userId), {
+
+        await db.upsertUser({
+          openId,
+          username: input.username,
+          passwordHash: hash,
+          email: input.email || null,
+          name: input.username,
+          loginMethod: "password",
+          lastSignedIn: new Date(),
+        });
+
+        const sessionToken = await sdk.createSessionToken(openId, {
           name: input.username,
           expiresInMs: ONE_YEAR_MS,
         });
-        
+
         const cookieOptions = getSessionCookieOptions(ctx.req);
         ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
-        
+
         return { success: true, username: input.username };
       }),
     

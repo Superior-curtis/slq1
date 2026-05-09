@@ -8,7 +8,5 @@
     "startCommand": "node dist/index.js",
     "restartPolicyMaxRetries": 10
   },
-  "plugins": [
-    "mysql"
-  ]
+  "plugins": []
 }

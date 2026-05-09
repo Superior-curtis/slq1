@@ -9,6 +9,7 @@ import { useState, useEffect } from "react";
 import { Loader2, Copy, Check, Send } from "lucide-react";
 import { toast } from "sonner";
 import { useGameSocket } from "@/hooks/useGameSocket";
+import { ZERO_CARD_MODE, getZeroCardContentImageUrl } from "@/lib/zeroCard";
 
 export default function GameRoom(props: any = {}) {
   const [location] = useLocation();
@@ -22,7 +23,7 @@ export default function GameRoom(props: any = {}) {
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
   const [gameType, setGameType] = useState<"random" | "bot" | "duel">("random");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [duelCode, setDuelCode] = useState<string>("");
 
   // Game play state
@@ -43,6 +44,16 @@ export default function GameRoom(props: any = {}) {
   // API queries
   const { data: categoriesData } = trpc.content.getCategories.useQuery();
   const categories = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []);
+  const playableCategories = categories.filter((category: string) => category !== "all");
+
+  useEffect(() => {
+    if (!selectedCategory && playableCategories.length > 0) {
+      const preferred = playableCategories.find((category: string) => category === "trending") ||
+        playableCategories.find((category: string) => category === "famous-actor") ||
+        playableCategories[0];
+      setSelectedCategory(preferred);
+    }
+  }, [playableCategories, selectedCategory]);
 
   const { data: contentData, refetch: refetchContent } = trpc.content.getRandomVideos.useQuery(
     { category: selectedCategory || "all", count: 1 },
@@ -54,6 +65,8 @@ export default function GameRoom(props: any = {}) {
   const joinQueueMutation = trpc.matchmaking.joinQueue.useMutation();
   const leaveQueueMutation = trpc.matchmaking.leaveQueue.useMutation();
   const getQueueStatusQuery = trpc.matchmaking.getQueueStatus.useQuery(undefined, { enabled: gameType === "random" && !gameStarted });
+
+  const selectedCategoryLabel = selectedCategory || "Popular Mix";
 
   // Timer effect
   useEffect(() => {
@@ -119,6 +132,8 @@ export default function GameRoom(props: any = {}) {
     const currentContent = contentData?.data?.[0];
     const correctAnswers = currentContent?.actors && currentContent.actors.length > 0 
       ? currentContent.actors 
+      : currentContent?.correctAnswers && currentContent.correctAnswers.length > 0
+      ? currentContent.correctAnswers
       : [currentContent?.title || "Unknown"];
 
     const isAnswerCorrect = correctAnswers.some(
@@ -177,6 +192,8 @@ export default function GameRoom(props: any = {}) {
   const currentContent = contentData?.data?.[0];
   const correctAnswers = currentContent?.actors && currentContent.actors.length > 0
     ? currentContent.actors
+    : currentContent?.correctAnswers && currentContent.correctAnswers.length > 0
+    ? currentContent.correctAnswers
     : [currentContent?.title || "Unknown"];
 
   if (!isAuthenticated) {
@@ -247,8 +264,8 @@ export default function GameRoom(props: any = {}) {
                   onChange={(e) => setSelectedCategory(e.target.value)}
                   className="w-full p-2 bg-black/50 border border-orange-500/30 rounded text-white"
                 >
-                  <option value="all">All Categories</option>
-                  {categories.map((cat: string) => {
+                  <option value="">Popular Mix</option>
+                  {playableCategories.map((cat: string) => {
                     const catName = typeof cat === 'string' ? cat : String(cat);
                     return (
                       <option key={catName} value={catName}>
@@ -264,7 +281,7 @@ export default function GameRoom(props: any = {}) {
                 <div className="mb-4">
                   <label className="block text-sm font-semibold mb-2">Duel Room Code</label>
                   <Input
-                    placeholder="Enter code or leave empty to create new"
+                    placeholder="Enter a duel code to join or leave empty to create one"
                     value={duelCode}
                     onChange={(e) => setDuelCode(e.target.value)}
                     className="bg-black/50 border-orange-500/30 text-white"
@@ -286,10 +303,13 @@ export default function GameRoom(props: any = {}) {
                       },
                     });
                   } else if (gameType === "duel") {
-                    if (!duelCode || duelCode.length < 4) {
+                    const normalizedCode = duelCode.trim().toUpperCase();
+                    if (normalizedCode && normalizedCode.length < 4) {
                       toast.error("Please enter a valid duel code");
                       return;
                     }
+                    const roomCodeToUse = normalizedCode || Math.random().toString(36).slice(2, 8).toUpperCase();
+                    setRoomCode(roomCodeToUse);
                     setGameStarted(true);
                   } else {
                     setGameStarted(true);
@@ -316,12 +336,29 @@ export default function GameRoom(props: any = {}) {
                   <p className="text-xs text-blue-400 mt-2">Est. Wait: {getQueueStatusQuery.data.estimatedWaitTime}s</p>
                 </Card>
               )}
+
+              {gameType === "duel" && roomCode && (
+                <Card className="p-4 bg-blue-900/30 border border-blue-500/30 text-center">
+                  <p className="text-sm text-blue-300">Duel Room Code</p>
+                  <div className="mt-2 flex items-center justify-center gap-2">
+                    <span className="text-2xl font-bold tracking-[0.2em] text-blue-200">{roomCode}</span>
+                    <Button onClick={copyRoomCode} size="sm" variant="outline" className="border-blue-400/40 text-blue-100">
+                      {copied ? "Copied" : "Copy"}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-blue-400 mt-2">Share this code so the other player can join the duel.</p>
+                </Card>
+              )}
             </Card>
           ) : null}
 
           {/* Game Content */}
-          {gameStarted ? (
+              {gameStarted ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+              <Card className="p-4 bg-black/40 border border-orange-500/20">
+                <p className="text-xs text-orange-300 uppercase tracking-[0.2em]">Current Category</p>
+                <p className="text-lg font-semibold text-white">{selectedCategoryLabel}</p>
+              </Card>
               {/* Timer and Round Info */}
               <div className="grid grid-cols-2 gap-4">
                 <Card className="p-4 bg-gradient-to-br from-red-500/20 to-red-500/5 border border-red-500/30 text-center">
@@ -339,7 +376,20 @@ export default function GameRoom(props: any = {}) {
                 {currentContent ? (
                   gameMode === "video" ? (
                     <div className="w-full aspect-video bg-black rounded overflow-hidden">
-                      {currentContent.id ? (
+                      {ZERO_CARD_MODE ? (
+                        // In zero-card mode we don't have real embed IDs, show thumbnail as fallback
+                        currentContent.thumbnail ? (
+                          <img
+                            src={getZeroCardContentImageUrl(currentContent.thumbnail)}
+                            alt="Video thumbnail"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-black/50">
+                            <p className="text-orange-300">Video unavailable</p>
+                          </div>
+                        )
+                      ) : currentContent.id ? (
                         <iframe
                           src={`https://www.pornhub.com/embed/${currentContent.id}`}
                           width="100%"
@@ -363,7 +413,7 @@ export default function GameRoom(props: any = {}) {
                     <div className="w-full h-96 bg-black rounded overflow-hidden flex items-center justify-center">
                       {currentContent.thumbnail ? (
                         <img
-                          src={`/api/proxy/pornhub/image?url=${encodeURIComponent(currentContent.thumbnail)}`}
+                          src={ZERO_CARD_MODE ? getZeroCardContentImageUrl(currentContent.thumbnail) : `/api/proxy/pornhub/image?url=${encodeURIComponent(currentContent.thumbnail)}`}
                           alt="Content"
                           className="w-full h-full object-cover"
                           onError={(e) => {

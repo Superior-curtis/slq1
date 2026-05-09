@@ -311,6 +311,9 @@ export async function getPornhubCategories(): Promise<string[]> {
       "threesome",
       "toys",
       "webcam",
+      "trending",
+      "famous-actor",
+      "pornstars",
     ];
   } catch (error) {
     console.error("[Pornhub API] Categories error:", error);

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
+import { ZERO_CARD_MODE } from "@/lib/zeroCard";
 
 interface GameRoomState {
   roomId: string;
@@ -24,6 +25,33 @@ export function useGameSocket(roomId?: string) {
   const [players, setPlayers] = useState<Array<{ id: string; name: string; score: number }>>([]);
 
   useEffect(() => {
+    if (ZERO_CARD_MODE) {
+      const roomPlayers = [
+        { id: "local-player", name: "Local Player", score: 0 },
+        { id: "demo-opponent", name: "Demo Opponent", score: 0 },
+      ];
+
+      setIsConnected(true);
+      setPlayers(roomPlayers);
+      setGameState({
+        roomId: roomId || "local-room",
+        players: roomPlayers,
+        currentRound: 1,
+        gameStarted: false,
+        timeLeft: 30,
+      });
+      setChatMessages([
+        {
+          userId: "system",
+          userName: "System",
+          message: "Zero-card mode is running locally.",
+          timestamp: Date.now(),
+        },
+      ]);
+
+      return;
+    }
+
     // 連接到 Socket.IO 伺服器
     const socket = io(window.location.origin, {
       reconnection: true,
@@ -89,18 +117,41 @@ export function useGameSocket(roomId?: string) {
   }, [roomId]);
 
   const sendChatMessage = (message: string) => {
+    if (ZERO_CARD_MODE) {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          userId: "local-player",
+          userName: "Local Player",
+          message,
+          timestamp: Date.now(),
+        },
+      ]);
+
+      return;
+    }
+
     if (socketRef.current && isConnected) {
       socketRef.current.emit("chatMessage", { message });
     }
   };
 
   const submitAnswer = (answer: string, responseTime: number) => {
+    if (ZERO_CARD_MODE) {
+      return;
+    }
+
     if (socketRef.current && isConnected) {
       socketRef.current.emit("submitAnswer", { answer, responseTime });
     }
   };
 
   const startGame = () => {
+    if (ZERO_CARD_MODE) {
+      setGameState((prev) => (prev ? { ...prev, gameStarted: true } : prev));
+      return;
+    }
+
     if (socketRef.current && isConnected) {
       socketRef.current.emit("startGame");
     }

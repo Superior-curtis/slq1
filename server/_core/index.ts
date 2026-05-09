@@ -33,17 +33,11 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function ensureDemoUserExists() {
-  const db = await require("../db").getDb();
-  if (!db) return;
-
   try {
-    // Check if demo user exists
-    const existing = await db.execute(
-      "SELECT id FROM users WHERE username = 'demo' LIMIT 1"
-    );
+    const db = require("../db");
+    const existing = await db.getUserByUsername("demo");
 
-    if (!existing || !Array.isArray(existing) || existing.length === 0) {
-      // Create demo user
+    if (!existing) {
       const crypto = require("crypto");
       const passwordHash = crypto
         .createHash("sha256")
@@ -51,10 +45,16 @@ async function ensureDemoUserExists() {
         .digest("hex");
       const openId = `usr_demo_${crypto.randomUUID()}`;
 
-      await db.execute(
-        "INSERT INTO users (openId, username, passwordHash, name, email, loginMethod, lastSignedIn, role) VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)",
-        [openId, "demo", passwordHash, "Demo User", "demo@example.com", "password", "user"]
-      );
+      await db.upsertUser({
+        openId,
+        username: "demo",
+        passwordHash,
+        name: "Demo User",
+        email: "demo@example.com",
+        loginMethod: "password",
+        role: "user",
+        lastSignedIn: new Date(),
+      });
 
       console.log("[Setup] Demo user created successfully");
     }

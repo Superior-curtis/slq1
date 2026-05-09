@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
 import { getLoginUrl } from "./const";
+import { BACKEND_URL, ZERO_CARD_MODE, zeroCardFetch } from "@/lib/zeroCard";
 import "./index.css";
 
 const queryClient = new QueryClient();
@@ -39,9 +40,7 @@ queryClient.getMutationCache().subscribe(event => {
 
 // Get backend URL from environment variable or use relative path for local dev
 const getBackendUrl = () => {
-  const envUrl = import.meta.env.VITE_BACKEND_URL;
-  // Return the env URL if set, otherwise use relative path for SPA
-  return envUrl || '';
+  return BACKEND_URL;
 };
 
 const apiUrl = getBackendUrl() ? `${getBackendUrl()}/api/trpc` : '/api/trpc';
@@ -52,6 +51,10 @@ const trpcClient = trpc.createClient({
       url: apiUrl,
       transformer: superjson,
       fetch(input, init) {
+        if (ZERO_CARD_MODE) {
+          return zeroCardFetch(input, init);
+        }
+
         return globalThis.fetch(input, {
           ...(init ?? {}),
           credentials: "include",

@@ -3,18 +3,37 @@ import fs from "fs";
 import { type Server } from "http";
 import { nanoid } from "nanoid";
 import path from "path";
-import { createServer as createViteServer } from "vite";
-import viteConfig from "../../vite.config";
 
 export async function setupVite(app: Express, server: Server) {
+  const [{ createServer: createViteServer }, { default: react }, { default: tailwindcss }, { jsxLocPlugin }, { vitePluginManusRuntime }] =
+    await Promise.all([
+      import("vite"),
+      import("@vitejs/plugin-react"),
+      import("@tailwindcss/vite"),
+      import("@builder.io/vite-plugin-jsx-loc"),
+      import("vite-plugin-manus-runtime"),
+    ]);
+
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
     allowedHosts: true as const,
   };
 
+  const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime()];
+
   const vite = await createViteServer({
-    ...viteConfig,
+    plugins,
+    resolve: {
+      alias: {
+        "@": path.resolve(import.meta.dirname, "../..", "client", "src"),
+        "@shared": path.resolve(import.meta.dirname, "../..", "shared"),
+        "@assets": path.resolve(import.meta.dirname, "../..", "attached_assets"),
+      },
+    },
+    envDir: path.resolve(import.meta.dirname, "../.."),
+    root: path.resolve(import.meta.dirname, "../..", "client"),
+    publicDir: path.resolve(import.meta.dirname, "../..", "client", "public"),
     configFile: false,
     server: serverOptions,
     appType: "custom",

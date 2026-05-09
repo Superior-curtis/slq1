@@ -1,4 +1,5 @@
 import * as scraper from "./pornhubScraper";
+import * as pornhubApiWrapper from "./pornhubApiWrapper";
 
 interface PornhubVideo {
   id: string;
@@ -18,10 +19,12 @@ interface PornhubVideo {
  */
 export async function getCategories(): Promise<string[]> {
   try {
-    return await scraper.scrapeCategories();
+    const categories = await scraper.scrapeCategories();
+    const specialCategories = ["trending", "famous-actor", "pornstars"];
+    return Array.from(new Set([...categories, ...specialCategories]));
   } catch (error) {
     console.error("[Pornhub Client] Failed to get categories:", error);
-    return [];
+    return ["trending", "famous-actor", "pornstars"];
   }
 }
 
@@ -58,6 +61,35 @@ export async function getVideoById(videoId: string): Promise<PornhubVideo | null
  */
 export async function getRandomVideos(category?: string, count: number = 5): Promise<PornhubVideo[]> {
   try {
+    const normalizedCategory = category?.trim().toLowerCase().replace(/\s+/g, "-") ?? "all";
+
+    if (normalizedCategory === "all" || normalizedCategory === "trending") {
+      const trending = await pornhubApiWrapper.getTrendingPornhubVideos(Math.max(count * 2, 20));
+      if (trending.length > 0) {
+        return trending.sort(() => Math.random() - 0.5).slice(0, count) as unknown as PornhubVideo[];
+      }
+
+      return await scraper.scrapeRandomVideos(undefined, count);
+    }
+
+    if (
+      normalizedCategory === "famous-actor" ||
+      normalizedCategory === "pornstars" ||
+      normalizedCategory === "stars"
+    ) {
+      const stars = await pornhubApiWrapper.getPornhubStars(Math.max(count * 2, 10));
+      const starName = stars[0]?.name || stars[0]?.pornstar_name || stars[0]?.username || stars[0]?.title;
+
+      if (starName) {
+        const videos = await pornhubApiWrapper.getVideosByPornstar(String(starName), Math.max(count * 2, 10));
+        if (videos.length > 0) {
+          return videos.sort(() => Math.random() - 0.5).slice(0, count);
+        }
+      }
+
+      return await scraper.scrapeRandomVideos(undefined, count);
+    }
+
     return await scraper.scrapeRandomVideos(category, count);
   } catch (error) {
     console.error("[Pornhub Client] Failed to get random videos:", error);

@@ -8,12 +8,13 @@ RUN apk add --no-cache python3 py3-pip make g++
 
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
+COPY patches ./patches
 
 # Install pnpm
 RUN npm install -g pnpm@10.4.1
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 # Copy source code
 COPY . .
@@ -30,16 +31,17 @@ WORKDIR /app
 RUN apk add --no-cache python3 py3-pip
 
 # Install Python dependencies
-RUN pip3 install pornhub-api
+RUN pip3 install --break-system-packages pornhub-api
 
 # Install pnpm
 RUN npm install -g pnpm@10.4.1
 
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
+COPY patches ./patches
 
 # Install production dependencies
-RUN pnpm install --prod --frozen-lockfile
+RUN pnpm install --prod --no-frozen-lockfile
 
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist

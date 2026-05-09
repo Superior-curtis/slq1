@@ -26,7 +26,15 @@ function Router() {
     if (verified) {
       setAgeVerified(true);
     }
+    // listen for ageVerified events (dispatched by AgeVerification)
+    const onAgeVerified = () => setAgeVerified(true);
+    window.addEventListener("ageVerified", onAgeVerified);
+
     setLoading(false);
+
+    return () => {
+      window.removeEventListener("ageVerified", onAgeVerified);
+    };
   }, []);
 
   if (loading) {

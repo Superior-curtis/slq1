@@ -1,5 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { isFirebaseEnabled } from "@/lib/firebase";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { useLocation } from "wouter";
@@ -187,7 +188,7 @@ export default function Login() {
         </motion.form>
 
         {/* Demo Credentials Info */}
-        {!isRegisterMode && (
+        {!isRegisterMode && !isFirebaseEnabled && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -197,6 +198,19 @@ export default function Login() {
             <p className="font-semibold text-blue-400 mb-1">Demo Account:</p>
             <p>Username: <span className="text-orange-400">demo</span></p>
             <p>Password: <span className="text-orange-400">demo123</span></p>
+          </motion.div>
+        )}
+
+        {isFirebaseEnabled && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mt-6 bg-emerald-500/10 border border-emerald-500/30 rounded p-3 text-sm text-gray-300"
+          >
+            <p className="font-semibold text-emerald-400 mb-1">Firebase Shared Mode:</p>
+            <p>Accounts are shared through Firebase Auth + Firestore.</p>
+            <p>Your username is mapped to an internal Firebase identity.</p>
           </motion.div>
         )}
       </motion.div>

@@ -1,6 +1,8 @@
 import { trpc } from "@/lib/trpc";
+import { firebaseLogin, firebaseLogout, firebaseRegister, isFirebaseEnabled, waitForFirebaseUser, type FirebaseSessionUser } from "@/lib/firebase";
+import { getZeroCardCurrentUser } from "@/lib/zeroCard";
 import { TRPCClientError } from "@trpc/client";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type UseAuthOptions = {
   redirectOnUnauthenticated?: boolean;
@@ -11,10 +13,25 @@ export function useAuth(options?: UseAuthOptions) {
   const { redirectOnUnauthenticated = false, redirectPath = "/login" } =
     options ?? {};
   const utils = trpc.useUtils();
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseSessionUser | null>(null);
+  const [firebaseLoading, setFirebaseLoading] = useState(isFirebaseEnabled);
+  const [zeroCardUser, setZeroCardUser] = useState(() =>
+    isFirebaseEnabled ? null : getZeroCardCurrentUser()
+  );
+
+  useEffect(() => {
+    if (!isFirebaseEnabled) return;
+
+    waitForFirebaseUser().then((user) => {
+      setFirebaseUser(user);
+      setFirebaseLoading(false);
+    });
+  }, []);
 
   const meQuery = trpc.auth.me.useQuery(undefined, {
     retry: false,
     refetchOnWindowFocus: false,
+    enabled: !isFirebaseEnabled,
   });
 
   const loginMutation = trpc.auth.login.useMutation({
@@ -37,6 +54,16 @@ export function useAuth(options?: UseAuthOptions) {
 
   const login = useCallback(
     async (username: string, password: string) => {
+      if (isFirebaseEnabled) {
+        const user = await firebaseLogin(username, password);
+        setFirebaseUser(user);
+        setFirebaseLoading(false);
+        return {
+          success: true,
+          username,
+        };
+      }
+
       return loginMutation.mutateAsync({ username, password });
     },
     [loginMutation]
@@ -44,12 +71,28 @@ export function useAuth(options?: UseAuthOptions) {
 
   const register = useCallback(
     async (username: string, password: string, email?: string) => {
+      if (isFirebaseEnabled) {
+        const user = await firebaseRegister(username, password, email);
+        setFirebaseUser(user);
+        setFirebaseLoading(false);
+        return {
+          success: true,
+          username,
+        };
+      }
+
       return registerMutation.mutateAsync({ username, password, email });
     },
     [registerMutation]
   );
 
   const logout = useCallback(async () => {
+    if (isFirebaseEnabled) {
+      await firebaseLogout();
+      setFirebaseUser(null);
+      return;
+    }
+
     try {
       await logoutMutation.mutateAsync();
     } catch (error: unknown) {
@@ -61,21 +104,42 @@ export function useAuth(options?: UseAuthOptions) {
       }
       throw error;
     } finally {
+      setZeroCardUser(null);
       utils.auth.me.setData(undefined, null);
       await utils.auth.me.invalidate();
     }
   }, [logoutMutation, utils]);
 
   const state = useMemo(() => {
-    localStorage.setItem(
-      "user-info",
-      JSON.stringify(meQuery.data)
-    );
+    if (isFirebaseEnabled) {
+      const user = firebaseUser
+        ? {
+            id: firebaseUser.uid,
+            name: firebaseUser.displayName || firebaseUser.username || "Player",
+            email: firebaseUser.email,
+            role: "user",
+          }
+        : null;
+
+      return {
+        user,
+        loading: firebaseLoading,
+        error: null,
+        isAuthenticated: Boolean(user),
+      };
+    }
+
+    const user = meQuery.data ?? zeroCardUser ?? null;
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("user-info", JSON.stringify(user));
+    }
+
     return {
-      user: meQuery.data ?? null,
+      user,
       loading: meQuery.isLoading || logoutMutation.isPending,
       error: meQuery.error ?? logoutMutation.error ?? null,
-      isAuthenticated: Boolean(meQuery.data),
+      isAuthenticated: Boolean(user),
     };
   }, [
     meQuery.data,
@@ -83,11 +147,14 @@ export function useAuth(options?: UseAuthOptions) {
     meQuery.isLoading,
     logoutMutation.error,
     logoutMutation.isPending,
+    firebaseLoading,
+    firebaseUser,
+    zeroCardUser,
   ]);
 
   useEffect(() => {
     if (!redirectOnUnauthenticated) return;
-    if (meQuery.isLoading || logoutMutation.isPending) return;
+    if (isFirebaseEnabled ? firebaseLoading : meQuery.isLoading || logoutMutation.isPending) return;
     if (state.user) return;
     if (typeof window === "undefined") return;
     if (window.location.pathname === redirectPath) return;
@@ -98,6 +165,7 @@ export function useAuth(options?: UseAuthOptions) {
     redirectPath,
     logoutMutation.isPending,
     meQuery.isLoading,
+    firebaseLoading,
     state.user,
   ]);
 

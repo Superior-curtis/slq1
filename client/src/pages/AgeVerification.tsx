@@ -11,6 +11,10 @@ export default function AgeVerification() {
     // Set age verification in localStorage
     localStorage.setItem("ageVerified", "true");
     localStorage.setItem("ageVerificationTime", new Date().getTime().toString());
+    // notify other parts of the app (Router listens for this)
+    try {
+      window.dispatchEvent(new Event("ageVerified"));
+    } catch {}
     setVerified(true);
     navigate("/");
   };

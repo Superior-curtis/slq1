@@ -19,10 +19,19 @@ interface ChatMessage {
 
 export function useGameSocket(roomId?: string, userId?: string, userName?: string) {
   const socketRef = useRef<Socket | null>(null);
+  const roomIdRef = useRef<string | undefined>(roomId);
+  const userIdRef = useRef<string | undefined>(userId);
+  const userNameRef = useRef<string | undefined>(userName);
   const [isConnected, setIsConnected] = useState(false);
   const [gameState, setGameState] = useState<GameRoomState | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [players, setPlayers] = useState<Array<{ id: string; name: string; score: number }>>([]);
+
+  useEffect(() => {
+    roomIdRef.current = roomId;
+    userIdRef.current = userId;
+    userNameRef.current = userName;
+  }, [roomId, userId, userName]);
 
   useEffect(() => {
     if (ZERO_CARD_MODE) {
@@ -67,8 +76,10 @@ export function useGameSocket(roomId?: string, userId?: string, userName?: strin
       setIsConnected(true);
 
       // 如果有 roomId，立即加入房間（避免 race condition）
-      if (roomId && userId && userName) {
-        socket.emit("joinGameRoom", { roomId, userName });
+      if (roomIdRef.current && userIdRef.current && userNameRef.current) {
+        socket.emit("joinGameRoom", { roomId: roomIdRef.current, username: userNameRef.current }, (ack: any) => {
+          console.log("joinGameRoom ack on connect", ack);
+        });
       }
     });
 
@@ -126,7 +137,7 @@ export function useGameSocket(roomId?: string, userId?: string, userName?: strin
     return () => {
       socket.disconnect();
     };
-  }, [roomId, userName]);
+  }, []);
 
   useEffect(() => {
     if (ZERO_CARD_MODE) return;
@@ -151,12 +162,22 @@ export function useGameSocket(roomId?: string, userId?: string, userName?: strin
     }
 
     if (socketRef.current && isConnected) {
-      socketRef.current.emit("chatMessage", {
-        roomId,
-        userId: userId || "local-player",
-        username: userName || "Anonymous",
-        message,
-      });
+      socketRef.current.emit(
+        "chatMessage",
+        {
+          roomId,
+          userId: userId || "local-player",
+          username: userName || "Anonymous",
+          message,
+        },
+        (ack: any) => {
+          if (!ack || !ack.ok) {
+            console.error("chatMessage ack failed:", ack);
+          } else {
+            console.log("chatMessage ack ok");
+          }
+        }
+      );
     }
   };
 

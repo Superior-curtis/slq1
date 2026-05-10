@@ -3,10 +3,10 @@ import { handleFirebasePath, isFirebaseSharedMode } from "./firebaseShared";
 
 export const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL ||
-  (import.meta.env.PROD ? "https://slq1-production.up.railway.app" : "");
+  (typeof window !== "undefined" ? window.location.origin : import.meta.env.PROD ? "https://slq1-production.up.railway.app" : "");
 
 export const ZERO_CARD_MODE =
-  import.meta.env.VITE_ZERO_CARD_MODE === "true" || !BACKEND_URL;
+  import.meta.env.VITE_ZERO_CARD_MODE === "true";
 
 const STORAGE_KEYS = {
   users: "porn_guesser_zero_card_users",

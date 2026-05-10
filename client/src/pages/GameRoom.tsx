@@ -48,8 +48,39 @@ export default function GameRoom(props: any = {}) {
   const { isConnected, chatMessages, players, sendChatMessage, startGame, socket } = useGameSocket(
     roomId || undefined,
     user?.id != null ? String(user.id) : undefined,
-    user?.name
+    user?.name ?? undefined
   );
+
+  // Ensure socket-side in-memory room exists and join once connected
+  useEffect(() => {
+    if (!roomId || !socket) return;
+    const tryEnsureAndJoin = () => {
+      try {
+        socket.emit("ensureRoom", { roomId }, (res: any) => {
+          console.log("ensureRoom ack", res);
+          // after room ensured, emit join
+          socket.emit("joinGameRoom", { roomId, username: user?.name || "Guest" }, (ack: any) => {
+            console.log("joinGameRoom ack", ack);
+          });
+        });
+      } catch (e) {
+        console.warn("Failed to ensure/join room via socket", e);
+      }
+    };
+
+    if (isConnected) {
+      tryEnsureAndJoin();
+    } else {
+      const onConnect = () => {
+        tryEnsureAndJoin();
+        socket.off("connect", onConnect);
+      };
+      socket.on("connect", onConnect);
+      return () => {
+        socket.off("connect", onConnect);
+      };
+    }
+  }, [roomId, socket, isConnected, user?.name]);
 
   const { data: categoriesData } = trpc.content.getCategories.useQuery();
   const categories = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []);
@@ -383,7 +414,13 @@ export default function GameRoom(props: any = {}) {
               )}
 
               <Button
-                onClick={handlePrimaryAction}
+                onClick={() => {
+                  if (gameType === "duel" && roomCode && !gameStarted) {
+                    setGameStarted(true);
+                  } else {
+                    handlePrimaryAction();
+                  }
+                }}
                 disabled={joinQueueMutation.isPending || createRoomMutation.isPending || joinRoomByCodeMutation.isPending}
                 className="w-full bg-orange-500 hover:bg-orange-600 text-black font-bold disabled:opacity-50"
               >

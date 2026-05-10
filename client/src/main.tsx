@@ -51,7 +51,7 @@ const trpcClient = trpc.createClient({
       url: apiUrl,
       transformer: superjson,
       fetch(input, init) {
-        if (ZERO_CARD_MODE || isFirebaseEnabled) {
+        if (ZERO_CARD_MODE) {
           return zeroCardFetch(input, init);
         }
 

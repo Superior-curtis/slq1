@@ -177,10 +177,17 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ ctx, input }) => {
+        console.log("[Game] createRoom request:", {
+          roomType: input.roomType,
+          gameMode: input.gameMode,
+          category: input.category,
+          userId: ctx.user?.id ?? null,
+        });
         // Allow unauthenticated users to create rooms by passing null creatorId
         const creatorId = ctx.user?.id ?? null;
         const room = await gameLogic.createNewGameRoom(creatorId as any, input.gameMode, input.roomType as any);
         if (!room) throw new Error("Failed to create room");
+        console.log("[Game] createRoom success:", { roomId: room.id, roomCode: room.roomCode });
         return room;
       }),
 

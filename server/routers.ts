@@ -441,16 +441,17 @@ export const appRouter = router({
 
   // Matchmaking - Random Match
   matchmaking: router({
-    joinQueue: protectedProcedure
+    joinQueue: publicProcedure
       .output(z.object({
         success: z.boolean(),
         queuePosition: z.number(),
         queueSize: z.number(),
       }))
       .mutation(({ ctx }) => {
+        const userId = ctx.user?.id ?? `guest_${Date.now()}_${Math.random()}`;
         const player = {
-          userId: ctx.user.id,
-          username: ctx.user.name || "Player",
+          userId: userId,
+          username: ctx.user?.name || "Guest",
           socketId: "",
           joinedAt: Date.now(),
           rating: 1000,
@@ -458,17 +459,20 @@ export const appRouter = router({
         matchmakingSystem.addPlayerToQueue(player);
         return {
           success: true,
-          queuePosition: matchmakingSystem.getPlayerQueuePosition(ctx.user.id),
+          queuePosition: matchmakingSystem.getPlayerQueuePosition(userId),
           queueSize: matchmakingSystem.getQueueSize(),
         };
       }),
 
-    leaveQueue: protectedProcedure.mutation(({ ctx }) => {
-      matchmakingSystem.removePlayerFromQueue(ctx.user.id);
+    leaveQueue: publicProcedure.mutation(({ ctx }) => {
+      const userId = ctx.user?.id ?? "";
+      if (userId) {
+        matchmakingSystem.removePlayerFromQueue(userId);
+      }
       return { success: true };
     }),
 
-    getQueueStatus: protectedProcedure
+    getQueueStatus: publicProcedure
       .output(z.object({
         inQueue: z.boolean(),
         queuePosition: z.number(),
@@ -476,7 +480,8 @@ export const appRouter = router({
         estimatedWaitTime: z.number(),
       }))
       .query(({ ctx }) => {
-        const position = matchmakingSystem.getPlayerQueuePosition(ctx.user.id);
+        const userId = ctx.user?.id ?? "";
+        const position = matchmakingSystem.getPlayerQueuePosition(userId);
         const queueSize = matchmakingSystem.getQueueSize();
         return {
           inQueue: position > 0,

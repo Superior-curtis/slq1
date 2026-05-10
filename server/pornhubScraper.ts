@@ -43,7 +43,7 @@ const axiosInstance = axios.create({
 // 分類快取
 let categoriesCache: string[] | null = null;
 let cacheTime = 0;
-const CACHE_DURATION = 3600000; // 1 小時
+const CACHE_DURATION = 300000; // 5分鐘 (改短便於測試)
 
 /**
  * 獲取 Pornhub 分類列表
@@ -53,108 +53,130 @@ export async function scrapeCategories(): Promise<string[]> {
     // 檢查快取
     if (categoriesCache && Date.now() - cacheTime < CACHE_DURATION) {
       console.log("[Pornhub Scraper] Using cached categories");
-      return categoriesCache
-        .map((category) => category.trim().toLowerCase())
-        .filter((category) => category.length > 0)
-        .filter((category) => /[a-z]/i.test(category))
-        .filter((category) => !/^\d+$/.test(category))
-        .filter((category) => category.length < 50);
+      return categoriesCache;
     }
 
     console.log("[Pornhub Scraper] Fetching categories from Pornhub...");
 
-    const response = await axiosInstance.get("https://www.pornhub.com/categories");
-    const $ = cheerio.load(response.data);
+    try {
+      const response = await axiosInstance.get("https://www.pornhub.com/categories");
+      const $ = cheerio.load(response.data);
 
-    const categories: Set<string> = new Set();
+      const categories: Set<string> = new Set();
 
-    // 方法 1: 從分類鏈接提取
-    $("a[href*='/categories/']").each((_, el) => {
-      const href = $(el).attr("href");
-      if (href) {
-        const match = href.match(/\/categories\/([^/?]+)/);
-        if (match) {
-          const cat = match[1].replace(/-/g, " ").toLowerCase();
-          if (cat.length > 0 && cat.length < 50) {
-            categories.add(cat);
+      // 策略: 從category links的href提取 - Pornhub的主要分類列表
+      $("a[href*='/categories/']").each((_, el) => {
+        const href = $(el).attr("href");
+        
+        if (href && href.includes("/categories/")) {
+          const match = href.match(/\/categories\/([^/?#]+)/);
+          if (match) {
+            const cat = match[1].replace(/-/g, " ").toLowerCase().trim();
+            if (isValidCategory(cat)) {
+              categories.add(cat);
+            }
           }
         }
+      });
+
+      let result = Array.from(categories)
+        .map((cat) => cat.trim().toLowerCase())
+        .filter((cat) => cat.length > 0)
+        .filter((cat, idx, arr) => arr.indexOf(cat) === idx); // Remove duplicates
+
+      console.log(`[Pornhub Scraper] Extracted ${result.length} categories from href attributes`);
+      
+      if (result.length === 0) {
+        console.log("[Pornhub Scraper] No categories found from href, using fallback list");
+        result = [
+          "amateur", "anal", "asian", "bbw", "blonde", "blowjob", "bondage", "brunette",
+          "creampie", "cumshot", "ebony", "fetish", "gangbang", "gay", "hairy", "handjob",
+          "hd", "homemade", "interracial", "lesbian", "mature", "milf", "orgasm", "pov",
+          "redhead", "rough", "squirt", "teen", "threesome", "toys", "webcam",
+          "trending", "popular", "hot", "new", "hentai", "babe", "college", "pornstar"
+        ];
+      } else {
+        // Log first 20 categories for debugging
+        console.log(`[Pornhub Scraper] Top categories: ${result.slice(0, 20).join(", ")}...`);
       }
-    });
 
-    // 方法 2: 從分類 div 提取
-    $("div[class*='category'], li[class*='category']").each((_, el) => {
-      const text = $(el).text().trim().toLowerCase();
-      if (text && text.length > 0 && text.length < 50 && !text.includes("http")) {
-        categories.add(text);
-      }
-    });
+      // 快取結果
+      categoriesCache = result;
+      cacheTime = Date.now();
 
-    // 方法 3: 從標籤提取
-    $("span[class*='category'], a[class*='tag']").each((_, el) => {
-      const text = $(el).text().trim().toLowerCase();
-      if (text && text.length > 0 && text.length < 50) {
-        categories.add(text);
-      }
-    });
-
-    let result = Array.from(categories)
-      .map((category) => category.trim().toLowerCase())
-      .filter((category) => category.length > 0)
-      .filter((category) => /[a-z]/i.test(category))
-      .filter((category) => !/^\d+$/.test(category))
-      .filter((category) => category.length < 50);
-
-    result = Array.from(new Set(result));
-
-    if (result.length === 0) {
-      console.log("[Pornhub Scraper] No categories found");
-      return [];
+      return result;
+    } catch (scrapeError) {
+      console.error("[Pornhub Scraper] HTML scrape failed:", scrapeError);
+      
+      // 返回默認分類作為備選
+      return [
+        "amateur", "anal", "asian", "bbw", "blonde", "blowjob", "bondage", "brunette",
+        "creampie", "cumshot", "ebony", "fetish", "gangbang", "gay", "hairy", "handjob",
+        "hd", "homemade", "interracial", "lesbian", "mature", "milf", "orgasm", "pov",
+        "redhead", "rough", "squirt", "teen", "threesome", "toys", "webcam",
+        "trending", "popular", "hot", "new", "hentai", "babe", "college", "pornstar"
+      ];
     }
-
-    // 快取結果
-    categoriesCache = result;
-    cacheTime = Date.now();
-
-    console.log(`[Pornhub Scraper] Found ${result.length} categories`);
-    return result;
   } catch (error) {
     console.error("[Pornhub Scraper] Failed to scrape categories:", error);
 
     // 返回默認分類
     return [
-      "amateur",
-      "anal",
-      "asian",
-      "bbw",
-      "blonde",
-      "blowjob",
-      "bondage",
-      "brunette",
-      "creampie",
-      "cumshot",
-      "ebony",
-      "fetish",
-      "gangbang",
-      "gay",
-      "hairy",
-      "handjob",
-      "hd",
-      "homemade",
-      "interracial",
-      "lesbian",
-      "mature",
-      "milf",
-      "orgasm",
-      "pov",
-      "redhead",
-      "rough",
-      "squirt",
-      "teen",
-      "threesome",
-      "toys",
+      "amateur", "anal", "asian", "bbw", "blonde", "blowjob", "bondage", "brunette",
+      "creampie", "cumshot", "ebony", "fetish", "gangbang", "gay", "hairy", "handjob",
+      "hd", "homemade", "interracial", "lesbian", "mature", "milf", "orgasm", "pov",
+      "redhead", "rough", "squirt", "teen", "threesome", "toys", "webcam",
+      "trending", "popular", "hot", "new", "hentai", "babe", "college", "pornstar"
     ];
   }
+}
+
+/**
+ * Helper function to validate if string is a valid category name
+ */
+function isValidCategory(cat: string): boolean {
+  if (!cat || typeof cat !== "string") return false;
+  const trimmed = cat.trim().toLowerCase();
+  
+  // Basic validations
+  if (trimmed.length === 0 || trimmed.length > 50) return false;
+  if (!/^[a-z\s\-'&]+$/i.test(trimmed)) return false;
+  if (/^\d+$/.test(trimmed)) return false;
+  if (trimmed.length < 2) return false;
+  
+  // Must be 1-4 words max
+  const words = trimmed.split(/\s+/).length;
+  if (words > 4) return false;
+  
+  // Whitelist of known non-categories to explicitly exclude
+  const blacklist = new Set([
+    "hd porn", "gay porn", "trending", "popular", "new videos", 
+    "home", "videos", "categories", "live", "cams", "pornstars", "discover",
+    "logout", "login", "upload", "contact", "settings", "profile", "faq",
+    "blog", "insights", "shop", "contest", "feed", "newsletter",
+    "upgrade", "premium", "membership", "verified", "moderation", "dmca",
+    "privacy", "terms", "cookies", "accessibility", "help", "support",
+    "pornhub", "rss", "webmasters", "partners", "advertise", "press",
+    "subscribe", "trending searches", "popular searches", "trust and safety",
+    "content removal", "parental controls", "manage cookies", "cookie notice",
+    "remove ads", "cancel anytime", "go back", "start now", "straight",
+    "gay", "male", "female", "no ads", "exclusive content", "back log",
+    "sign up", "remember me", "email", "password", "reset password",
+    "section", "header", "footer", "menu", "item", "link", "button",
+    "click here", "read more", "view more", "show more", "load more"
+  ]);
+  
+  if (blacklist.has(trimmed)) return false;
+  
+  // Additional heuristics: 
+  // Real categories are usually nouns or descriptive adjectives
+  // Exclude words that are clearly UI elements or descriptors
+  if (trimmed.includes("click") || trimmed.includes("view") || trimmed.includes("remove")) return false;
+  if (trimmed === "and" || trimmed === "or" || trimmed === "the" || trimmed === "a") return false;
+  if (trimmed === "section" || trimmed === "header" || trimmed === "footer") return false;
+  if (trimmed.startsWith("- ") || trimmed.endsWith(" -")) return false;
+  
+  return true;
 }
 
 /**
@@ -254,85 +276,143 @@ export async function scrapeVideos(query: string, category?: string, count: numb
  */
 export async function scrapeRandomVideos(category?: string, count: number = 5): Promise<PornhubVideo[]> {
   try {
-    console.log(`[Pornhub Scraper] Fetching random videos in category "${category || "all"}"`);
-
+    const normalizedCategory = category ? category.replace(/\s+/g, "-").toLowerCase() : null;
     let url = "https://www.pornhub.com/videos";
 
-    if (category && category !== "all") {
-      url = `https://www.pornhub.com/categories/${category.replace(/ /g, "-")}`;
+    if (normalizedCategory && normalizedCategory !== "all" && normalizedCategory !== "trending") {
+      url = `https://www.pornhub.com/categories/${normalizedCategory}`;
     }
 
-    const response = await axiosInstance.get(url);
+    console.log(`[Pornhub Scraper] Fetching random videos from: ${url}`);
+
+    const response = await axiosInstance.get(url, {
+      timeout: 20000,
+    });
     const $ = cheerio.load(response.data);
 
     const videos: PornhubVideo[] = [];
 
-    // 解析視頻卡片
-    $("div[class*='videoBox'], li[class*='videoPreview']").each((_, el) => {
-      if (videos.length >= count * 3) return; // 獲取更多以便隨機選擇
+    // 嘗試多種選擇器獲取視頻卡片
+    const selectors = [
+      "div[class*='videoBox']",
+      "li[class*='videoBox']",
+      "div[data-video-id]",
+      "li[data-video-id]",
+      "a[href*='viewkey=']",
+      "article[data-video-id]",
+    ];
 
-      try {
-        const $el = $(el);
+    for (const selector of selectors) {
+      if (videos.length >= count * 2) break;
 
-        // 提取視頻 URL 和 ID
-        const href = $el.find("a").first().attr("href");
-        if (!href) return;
+      $(selector).each((_, el) => {
+        if (videos.length >= count * 2) return false;
 
-        const videoIdMatch = href.match(/viewkey=([^&]+)/);
-        if (!videoIdMatch) return;
+        try {
+          const $el = $(el);
 
-        const videoId = videoIdMatch[1];
-        const videoUrl = href.startsWith("http") ? href : `https://www.pornhub.com${href}`;
+          // 嘗試從多個位置提取href
+          let href = $el.attr("href") || $el.find("a").first().attr("href");
+          if (!href) {
+            // 嘗試從data屬性
+            const videoId = $el.attr("data-video-id");
+            if (videoId) {
+              href = `/view_video.php?viewkey=${videoId}`;
+            }
+          }
 
-        // 提取標題
-        const title = $el.find("a").first().attr("title") || $el.find("a").first().text().trim();
-        if (!title || title.length === 0) return;
+          if (!href) return true; // continue
 
-        // 提取縮圖
-        const thumbnail = $el.find("img").first().attr("src") || $el.find("img").first().attr("data-src") || "";
+          // 提取視頻ID
+          let videoId = "";
+          const viewkeyMatch = href.match(/viewkey=([a-z0-9]+)/i);
+          if (viewkeyMatch) {
+            videoId = viewkeyMatch[1];
+          } else {
+            videoId = $el.attr("data-video-id") || Math.random().toString(36).substring(2, 12);
+          }
 
-        // 提取時長
-        const durationText = $el.find("[class*='duration']").text().trim();
-        const durationMatch = durationText.match(/(\d+):(\d+)/);
-        const duration = durationMatch ? parseInt(durationMatch[1]) * 60 + parseInt(durationMatch[2]) : 0;
+          if (!videoId) return true; // continue
 
-        // 提取觀看次數
-        const viewsText = $el.find("[class*='views']").text().trim();
-        const viewsMatch = viewsText.match(/(\d+(?:,\d+)*)/);
-        const views = viewsMatch ? parseInt(viewsMatch[1].replace(/,/g, "")) : 0;
+          const videoUrl = href.startsWith("http") ? href : `https://www.pornhub.com${href}`;
 
-        // 提取評分
-        const ratingText = $el.find("[class*='rating']").text().trim();
-        const ratingMatch = ratingText.match(/([\d.]+)/);
-        const rating = ratingMatch ? parseFloat(ratingMatch[1]) : 0;
+          // 提取標題 - 嘗試多個位置
+          let title =
+            $el.find("a").first().attr("title") ||
+            $el.attr("data-title") ||
+            $el.find("h5, h4, .title, [class*='title']").first().text().trim() ||
+            $el.find("a").first().text().trim();
 
-        // 提取上傳日期
-        const uploadDate = $el.find("[class*='date']").text().trim();
+          if (!title || title.length === 0) {
+            title = `Video ${videoId}`;
+          }
 
-        // 提取演員
-        const actors = extractActorsFromTitle(title);
+          // 提取縮圖
+          const thumbnail =
+            $el.find("img").first().attr("src") ||
+            $el.find("img").first().attr("data-src") ||
+            $el.attr("data-thumb") ||
+            "";
 
-        videos.push({
-          id: videoId,
-          title,
-          url: videoUrl,
-          thumbnail,
-          duration,
-          views,
-          rating,
-          uploadDate,
-          actors,
-          categories: category ? [category] : [],
-        });
-      } catch (error) {
-        console.error("[Pornhub Scraper] Error parsing video:", error);
-      }
-    });
+          // 提取時長
+          let duration = 0;
+          const durationText = $el.find("[class*='duration'], .duration, [data-duration]").text().trim();
+          const durationMatch = durationText.match(/(\d+):(\d+)/);
+          if (durationMatch) {
+            const mins = parseInt(durationMatch[1]);
+            const secs = parseInt(durationMatch[2]);
+            duration = mins * 60 + secs;
+          }
 
-    // 隨機選擇
-    const shuffled = videos.sort(() => Math.random() - 0.5).slice(0, count);
+          // 提取觀看次數
+          let views = 0;
+          const viewsText = $el.find("[class*='views'], .views").text().trim();
+          const viewsMatch = viewsText.match(/(\d+(?:,\d+)*)/);
+          if (viewsMatch) {
+            views = parseInt(viewsMatch[1].replace(/,/g, ""));
+          }
 
-    console.log(`[Pornhub Scraper] Returning ${shuffled.length} random videos`);
+          // 提取評分
+          let rating = 0;
+          const ratingText = $el.find("[class*='rating'], .rating").text().trim();
+          const ratingMatch = ratingText.match(/([\d.]+)/);
+          if (ratingMatch) {
+            rating = parseFloat(ratingMatch[1]);
+          }
+
+          // 提取上傳日期
+          const uploadDate = $el.find("[class*='date'], .date").text().trim() || new Date().toISOString();
+
+          // 提取演員名稱
+          const actors = extractActorsFromTitle(title);
+
+          // 只保存有效的視頻
+          if (videoId && title && videoUrl) {
+            videos.push({
+              id: videoId,
+              title,
+              url: videoUrl,
+              thumbnail,
+              duration: duration || 600, // Default to 10 mins
+              views,
+              rating,
+              uploadDate,
+              actors,
+              categories: normalizedCategory && normalizedCategory !== "all" ? [normalizedCategory.replace(/-/g, " ")] : [],
+            });
+          }
+        } catch (error) {
+          console.error("[Pornhub Scraper] Error parsing video element:", error);
+        }
+        return true; // continue
+      });
+    }
+
+    // 隨機選擇並去重
+    const uniqueVideos = Array.from(new Map(videos.map((v) => [v.id, v])).values());
+    const shuffled = uniqueVideos.sort(() => Math.random() - 0.5).slice(0, count);
+
+    console.log(`[Pornhub Scraper] Returning ${shuffled.length} random videos from ${videos.length} found`);
     return shuffled;
   } catch (error) {
     console.error("[Pornhub Scraper] Failed to scrape random videos:", error);

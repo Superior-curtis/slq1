@@ -442,52 +442,86 @@ export const appRouter = router({
   // Matchmaking - Random Match
   matchmaking: router({
     joinQueue: publicProcedure
+      .input(
+        z.object({
+          gameMode: z.enum(["picture", "video"]),
+          guestId: z.string().optional(),
+        })
+      )
       .output(z.object({
         success: z.boolean(),
         queuePosition: z.number(),
         queueSize: z.number(),
+        matchedRoomId: z.string().optional(),
+        roomCode: z.string().optional(),
+        guestId: z.string().optional(),
       }))
-      .mutation(({ ctx }) => {
-        const userId = ctx.user?.id ?? `guest_${Date.now()}_${Math.random()}`;
+      .mutation(async ({ ctx, input }) => {
+        const guestId = input.guestId ?? `guest_${Date.now()}_${Math.random()}`;
+        const userId = ctx.user?.id != null ? String(ctx.user.id) : guestId;
         const player = {
           userId: userId,
           username: ctx.user?.name || "Guest",
           socketId: "",
           joinedAt: Date.now(),
           rating: 1000,
+          gameMode: input.gameMode,
         };
         matchmakingSystem.addPlayerToQueue(player);
+
+        const matched = matchmakingSystem.tryMatchPlayers();
+        if (matched && !matched.roomId) {
+          const room = await gameLogic.createNewGameRoom(null, input.gameMode, "random");
+          if (room) {
+            matchmakingSystem.assignRoomToMatch(matched.matchId, room.id, room.roomCode);
+          }
+        }
+
+        const matchedRoomId = matchmakingSystem.getMatchedRoomIdForPlayer(userId);
+        const matchedRoom = matchedRoomId ? await db.getGameRoomById(matchedRoomId) : undefined;
         return {
           success: true,
           queuePosition: matchmakingSystem.getPlayerQueuePosition(userId),
           queueSize: matchmakingSystem.getQueueSize(),
+          matchedRoomId,
+          roomCode: matchedRoom?.roomCode,
+          guestId,
         };
       }),
 
-    leaveQueue: publicProcedure.mutation(({ ctx }) => {
-      const userId = ctx.user?.id ?? "";
+    leaveQueue: publicProcedure
+      .input(z.object({ guestId: z.string().optional() }).optional())
+      .mutation(({ ctx, input }) => {
+      const userId = ctx.user?.id != null ? String(ctx.user.id) : input?.guestId ?? "";
       if (userId) {
         matchmakingSystem.removePlayerFromQueue(userId);
       }
       return { success: true };
-    }),
+      }),
 
     getQueueStatus: publicProcedure
+      .input(z.object({ guestId: z.string().optional() }).optional())
       .output(z.object({
         inQueue: z.boolean(),
         queuePosition: z.number(),
         queueSize: z.number(),
         estimatedWaitTime: z.number(),
+        matchedRoomId: z.string().optional(),
+        roomCode: z.string().optional(),
       }))
-      .query(({ ctx }) => {
-        const userId = ctx.user?.id ?? "";
+      .query(({ ctx, input }) => {
+        const userId = ctx.user?.id != null ? String(ctx.user.id) : input?.guestId ?? "";
         const position = matchmakingSystem.getPlayerQueuePosition(userId);
         const queueSize = matchmakingSystem.getQueueSize();
+        const matchedRoomId = matchmakingSystem.getMatchedRoomIdForPlayer(userId);
+        const matchedRoom = matchedRoomId ? undefined : undefined;
         return {
           inQueue: position > 0,
           queuePosition: position,
           queueSize: queueSize,
           estimatedWaitTime: Math.max(0, (queueSize - position) * 5),
+          matchedRoomId,
+          roomCode: undefined,
         };
       }),
   }),

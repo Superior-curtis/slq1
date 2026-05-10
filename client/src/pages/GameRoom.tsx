@@ -9,7 +9,6 @@ import { useState, useEffect, useRef } from "react";
 import { Loader2, Copy, Check, Send } from "lucide-react";
 import { toast } from "sonner";
 import { useGameSocket } from "@/hooks/useGameSocket";
-import { ZERO_CARD_MODE, getZeroCardContentImageUrl } from "@/lib/zeroCard";
 
 export default function GameRoom(props: any = {}) {
   const [location] = useLocation();
@@ -18,15 +17,20 @@ export default function GameRoom(props: any = {}) {
   const { user, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
 
-  // Game state
+  const queueStorageKey = "porn_guesser_queue_guest_id";
+
   const [roomId, setRoomId] = useState<string | null>(null);
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
   const [gameType, setGameType] = useState<"random" | "bot" | "duel">("random");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [duelCode, setDuelCode] = useState<string>("");
+  const [queueGuestId, setQueueGuestId] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    return window.localStorage.getItem(queueStorageKey) || "";
+  });
+  const [isWaitingForMatch, setIsWaitingForMatch] = useState(false);
 
-  // Game play state
   const [answer, setAnswer] = useState("");
   const [responseTime, setResponseTime] = useState(0);
   const [gameStartTime, setGameStartTime] = useState(0);
@@ -36,29 +40,15 @@ export default function GameRoom(props: any = {}) {
   const [score, setScore] = useState(0);
   const [round, setRound] = useState(1);
   const [copied, setCopied] = useState(false);
+  const [chatInput, setChatInput] = useState("");
   const startEmittedRoomIdRef = useRef<string | null>(null);
 
-  // Socket.IO
   const { isConnected, chatMessages, players, sendChatMessage, startGame } = useGameSocket(roomId || undefined, user?.name);
-  const [chatInput, setChatInput] = useState("");
 
-  // API queries
   const { data: categoriesData } = trpc.content.getCategories.useQuery();
   const categories = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []);
-  const fallbackCategories = [
-    "trending",
-    "famous-actor",
-    "pornstars",
-    "amateur",
-    "anal",
-    "asian",
-    "milf",
-    "teen",
-    "threesome",
-  ];
-  const playableCategories = Array.from(
-    new Set([...fallbackCategories, ...categories].filter((category) => category !== "all"))
-  );
+  const fallbackCategories = ["trending", "famous-actor", "pornstars", "amateur", "anal", "asian", "milf", "teen", "threesome"];
+  const playableCategories = Array.from(new Set([...fallbackCategories, ...categories].filter((category) => category !== "all")));
 
   useEffect(() => {
     if (!selectedCategory && playableCategories.length > 0) {
@@ -71,28 +61,38 @@ export default function GameRoom(props: any = {}) {
 
   const { data: contentData, refetch: refetchContent } = trpc.content.getRandomVideos.useQuery(
     { category: selectedCategory || "all", count: 1 },
-    { enabled: gameStarted && showAnswer === false, staleTime: 0 }
+    { enabled: gameStarted && !showAnswer, staleTime: 0 }
   );
 
   const createRoomMutation = trpc.game.createRoom.useMutation();
   const joinRoomByCodeMutation = trpc.game.joinRoomByCode.useMutation();
   const submitAnswerMutation = trpc.game.submitAnswer.useMutation();
   const joinQueueMutation = trpc.matchmaking.joinQueue.useMutation();
-  const leaveQueueMutation = trpc.matchmaking.leaveQueue.useMutation();
-  const getQueueStatusQuery = trpc.matchmaking.getQueueStatus.useQuery(undefined, { enabled: gameType === "random" && !gameStarted });
+  const getQueueStatusQuery = trpc.matchmaking.getQueueStatus.useQuery(
+    queueGuestId ? { guestId: queueGuestId } : undefined,
+    {
+      enabled: gameType === "random" && !gameStarted && !!queueGuestId,
+      refetchInterval: isWaitingForMatch ? 2000 : false,
+    }
+  );
 
   const selectedCategoryLabel = selectedCategory || "Popular Mix";
+  const currentContent = contentData?.data?.[0] as any | undefined;
+  const correctAnswers = currentContent?.actors && currentContent.actors.length > 0
+    ? currentContent.actors
+    : currentContent?.correctAnswers && currentContent.correctAnswers.length > 0
+      ? currentContent.correctAnswers
+      : [currentContent?.title || "Unknown"];
+  const currentVideoId = currentContent?.sourceId || currentContent?.id || "";
+  const currentImageUrl = currentContent?.thumbnail || currentContent?.sourceUrl || "";
 
-  // Timer effect
   useEffect(() => {
     if (!gameStarted || showAnswer) return;
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
-          setTimeout(() => {
-            handleSubmitAnswer();
-          }, 100);
+          setTimeout(() => handleSubmitAnswer(), 100);
           return 0;
         }
         return prev - 1;
@@ -100,9 +100,8 @@ export default function GameRoom(props: any = {}) {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [gameStarted, showAnswer]);
+  }, [gameStarted, showAnswer, gameStartTime, roomId, answer]);
 
-  // Refetch content when round changes
   useEffect(() => {
     if (gameStarted && !showAnswer && round > 0) {
       refetchContent();
@@ -112,10 +111,22 @@ export default function GameRoom(props: any = {}) {
   useEffect(() => {
     if (!gameStarted || !roomId || !isConnected) return;
     if (startEmittedRoomIdRef.current === roomId) return;
-
     startEmittedRoomIdRef.current = roomId;
     startGame();
   }, [gameStarted, isConnected, roomId, startGame]);
+
+  useEffect(() => {
+    const matchedRoomId = getQueueStatusQuery.data?.matchedRoomId;
+    if (!isWaitingForMatch || !matchedRoomId) return;
+
+    setRoomId(matchedRoomId);
+    setRoomCode(getQueueStatusQuery.data?.roomCode || matchedRoomId);
+    setGameStarted(true);
+    setIsWaitingForMatch(false);
+    setTimeLeft(30);
+    setGameStartTime(Date.now());
+    toast.success("Match found! Starting the game.");
+  }, [getQueueStatusQuery.data?.matchedRoomId, getQueueStatusQuery.data?.roomCode, isWaitingForMatch]);
 
   const handleSubmitAnswer = () => {
     if (!roomId) return;
@@ -124,11 +135,7 @@ export default function GameRoom(props: any = {}) {
     setResponseTime(time);
 
     submitAnswerMutation.mutate(
-      {
-        roomId,
-        answer: answer.trim() || "(No answer)",
-        responseTime: time,
-      },
+      { roomId, answer: answer.trim() || "(No answer)", responseTime: time },
       {
         onSuccess: (data) => {
           setIsCorrect(data.isCorrect);
@@ -166,17 +173,15 @@ export default function GameRoom(props: any = {}) {
 
   const openRoom = async (roomType: "random" | "bot" | "duel") => {
     const createdRoom = await createRoomMutation.mutateAsync({
-      gameMode: (gameMode as "picture" | "video"),
+      gameMode: gameMode as "picture" | "video",
       roomType,
       category: selectedCategory && selectedCategory !== "all" ? selectedCategory : undefined,
     });
 
     setRoomId(createdRoom.id);
     setRoomCode(createdRoom.roomCode);
-    setGameStarted(true);
     setTimeLeft(30);
     setGameStartTime(Date.now());
-
     return createdRoom;
   };
 
@@ -193,38 +198,55 @@ export default function GameRoom(props: any = {}) {
         return;
       }
 
-      const room = await openRoom(gameType);
-
-      if (gameType === "random") {
-        try {
-          await joinQueueMutation.mutateAsync();
-          toast.info(`Joined queue, room ${room.roomCode} is ready`);
-        } catch {
-          toast.warning(`Room ${room.roomCode} created, but queue join failed`);
-        }
+      if (gameType === "duel") {
+        const room = await openRoom(gameType);
+        setGameStarted(false);
+        toast.success(`Duel room created: ${room.roomCode}. Share the code with the other player.`);
+        return;
       }
 
+      if (gameType === "random") {
+        const response = await joinQueueMutation.mutateAsync({
+          gameMode: gameMode as "picture" | "video",
+          guestId: queueGuestId || undefined,
+        });
+
+        if (response.guestId && !queueGuestId) {
+          setQueueGuestId(response.guestId);
+          window.localStorage.setItem(queueStorageKey, response.guestId);
+        }
+
+        if (response.matchedRoomId) {
+          setRoomId(response.matchedRoomId);
+          setRoomCode(response.roomCode || response.matchedRoomId);
+          setGameStarted(true);
+          setTimeLeft(30);
+          setGameStartTime(Date.now());
+          toast.success(`Matched! Room ${response.roomCode || response.matchedRoomId}`);
+        } else {
+          setIsWaitingForMatch(true);
+          setGameStarted(false);
+          toast.info("Joined queue. Waiting for another player...");
+        }
+
+        return;
+      }
+
+      const room = await openRoom(gameType);
+      setGameStarted(true);
       toast.success(`Room ready: ${room.roomCode}`);
-    } catch (error) {
+    } catch {
       toast.error(gameType === "random" ? "Failed to join queue" : "Failed to create room");
       setGameStarted(false);
     }
   };
 
   const copyRoomCode = () => {
-    if (roomCode) {
-      navigator.clipboard.writeText(roomCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+    if (!roomCode) return;
+    navigator.clipboard.writeText(roomCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
-
-  const currentContent = contentData?.data?.[0];
-  const correctAnswers = currentContent?.actors && currentContent.actors.length > 0
-    ? currentContent.actors
-    : currentContent?.correctAnswers && currentContent.correctAnswers.length > 0
-    ? currentContent.correctAnswers
-    : [currentContent?.title || "Unknown"];
 
   if (!isAuthenticated) {
     return (
@@ -242,7 +264,6 @@ export default function GameRoom(props: any = {}) {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Navigation */}
       <div className="bg-gradient-to-r from-orange-500/20 to-orange-500/5 border-b border-orange-500/30 p-4">
         <div className="max-w-7xl mx-auto flex flex-wrap gap-3 justify-between items-center">
           <div>
@@ -255,32 +276,20 @@ export default function GameRoom(props: any = {}) {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => navigate("/lobby")} variant="outline" className="border-orange-500/30">
-              Lobby
-            </Button>
-            <Button onClick={() => navigate("/leaderboard")} variant="outline" className="border-orange-500/30">
-              Leaderboard
-            </Button>
-            <Button onClick={() => navigate("/profile")} variant="outline" className="border-orange-500/30">
-              Profile
-            </Button>
-            <Button onClick={() => navigate("/dashboard")} variant="outline" className="border-orange-500/30">
-              Back
-            </Button>
+            <Button onClick={() => navigate("/lobby")} variant="outline" className="border-orange-500/30">Lobby</Button>
+            <Button onClick={() => navigate("/leaderboard")} variant="outline" className="border-orange-500/30">Leaderboard</Button>
+            <Button onClick={() => navigate("/profile")} variant="outline" className="border-orange-500/30">Profile</Button>
+            <Button onClick={() => navigate("/dashboard")} variant="outline" className="border-orange-500/30">Back</Button>
           </div>
         </div>
       </div>
 
-      {/* Main Game Area */}
       <div className="max-w-7xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Game Section */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Game Mode Selection */}
           {!gameStarted ? (
             <Card className="p-6 bg-gradient-to-br from-orange-500/20 to-orange-500/5 border border-orange-500/30">
               <h2 className="text-lg font-bold mb-4">Select Game Mode</h2>
 
-              {/* Game Type */}
               <div className="mb-4">
                 <label className="block text-sm font-semibold mb-2">Game Type</label>
                 <div className="grid grid-cols-3 gap-2">
@@ -297,7 +306,6 @@ export default function GameRoom(props: any = {}) {
                 </div>
               </div>
 
-              {/* Category Selection */}
               <div className="mb-4">
                 <label className="block text-sm font-semibold mb-2">Select Category</label>
                 <select
@@ -306,18 +314,14 @@ export default function GameRoom(props: any = {}) {
                   className="w-full p-2 bg-black/50 border border-orange-500/30 rounded text-white"
                 >
                   <option value="">Popular Mix</option>
-                  {playableCategories.map((cat: string) => {
-                    const catName = typeof cat === 'string' ? cat : String(cat);
-                    return (
-                      <option key={catName} value={catName}>
-                        {catName.charAt(0).toUpperCase() + catName.slice(1)}
-                      </option>
-                    );
-                  })}
+                  {playableCategories.map((cat: string) => (
+                    <option key={cat} value={cat}>
+                      {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              {/* Duel Code Input */}
               {gameType === "duel" && (
                 <div className="mb-4">
                   <label className="block text-sm font-semibold mb-2">Duel Room Code</label>
@@ -347,36 +351,49 @@ export default function GameRoom(props: any = {}) {
                 )}
               </Button>
 
-              {gameType === "random" && getQueueStatusQuery.data && (
-                <Card className="p-4 bg-blue-900/30 border border-blue-500/30 text-center">
-                  <p className="text-sm text-blue-300">Queue Position: {getQueueStatusQuery.data.queuePosition}/{getQueueStatusQuery.data.queueSize}</p>
-                  <p className="text-xs text-blue-400 mt-2">Est. Wait: {getQueueStatusQuery.data.estimatedWaitTime}s</p>
+              {gameType === "random" && (getQueueStatusQuery.data || isWaitingForMatch) && (
+                <Card className="p-4 bg-blue-900/30 border border-blue-500/30 text-center mt-4">
+                  <p className="text-sm text-blue-300">
+                    Queue Position: {getQueueStatusQuery.data?.queuePosition ?? 0}/{getQueueStatusQuery.data?.queueSize ?? 0}
+                  </p>
+                  <p className="text-xs text-blue-400 mt-2">Est. Wait: {getQueueStatusQuery.data?.estimatedWaitTime ?? 0}s</p>
                 </Card>
               )}
 
-              {gameType === "duel" && roomCode && (
-                <Card className="p-4 bg-blue-900/30 border border-blue-500/30 text-center">
-                  <p className="text-sm text-blue-300">Duel Room Code</p>
-                  <div className="mt-2 flex items-center justify-center gap-2">
-                    <span className="text-2xl font-bold tracking-[0.2em] text-blue-200">{roomCode}</span>
-                    <Button onClick={copyRoomCode} size="sm" variant="outline" className="border-blue-400/40 text-blue-100">
-                      {copied ? "Copied" : "Copy"}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-blue-400 mt-2">Share this code so the other player can join the duel.</p>
+              {gameType === "duel" && roomCode && !gameStarted && (
+                <>
+                  <Card className="p-4 bg-blue-900/30 border border-blue-500/30 text-center mt-4">
+                    <p className="text-sm text-blue-300">Duel Room Code</p>
+                    <div className="mt-2 flex items-center justify-center gap-2">
+                      <span className="text-2xl font-bold tracking-[0.2em] text-blue-200">{roomCode}</span>
+                      <Button onClick={copyRoomCode} size="sm" variant="outline" className="border-blue-400/40 text-blue-100">
+                        {copied ? "Copied" : "Copy"}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-blue-400 mt-2">Share this code so the other player can join the duel.</p>
+                  </Card>
+                  <Card className="p-4 bg-black/40 border border-orange-500/20 text-center mt-4">
+                    <p className="text-sm text-orange-300">Waiting for opponent</p>
+                    <p className="text-xs text-orange-400 mt-2">Keep this page open and share the room code above.</p>
+                  </Card>
+                </>
+              )}
+
+              {gameType === "random" && isWaitingForMatch && (
+                <Card className="p-4 bg-black/40 border border-orange-500/20 text-center mt-4">
+                  <p className="text-sm text-orange-300">Waiting for another player</p>
                 </Card>
               )}
             </Card>
           ) : null}
 
-          {/* Game Content */}
-              {gameStarted ? (
+          {gameStarted ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
               <Card className="p-4 bg-black/40 border border-orange-500/20">
                 <p className="text-xs text-orange-300 uppercase tracking-[0.2em]">Current Category</p>
                 <p className="text-lg font-semibold text-white">{selectedCategoryLabel}</p>
               </Card>
-              {/* Timer and Round Info */}
+
               <div className="grid grid-cols-2 gap-4">
                 <Card className="p-4 bg-gradient-to-br from-red-500/20 to-red-500/5 border border-red-500/30 text-center">
                   <p className="text-sm text-red-300">Time Left</p>
@@ -388,27 +405,13 @@ export default function GameRoom(props: any = {}) {
                 </Card>
               </div>
 
-              {/* Content Display */}
               <Card className="p-6 bg-gradient-to-br from-orange-500/20 to-orange-500/5 border border-orange-500/30 min-h-96">
                 {currentContent ? (
                   gameMode === "video" ? (
                     <div className="w-full aspect-video bg-black rounded overflow-hidden">
-                      {ZERO_CARD_MODE ? (
-                        // In zero-card mode we don't have real embed IDs, show thumbnail as fallback
-                        currentContent.thumbnail ? (
-                          <img
-                            src={getZeroCardContentImageUrl(currentContent.thumbnail)}
-                            alt="Video thumbnail"
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-black/50">
-                            <p className="text-orange-300">Video unavailable</p>
-                          </div>
-                        )
-                      ) : currentContent.id ? (
+                      {currentVideoId ? (
                         <iframe
-                          src={`https://www.pornhub.com/embed/${currentContent.id}`}
+                          src={`https://www.pornhub.com/embed/${currentVideoId}`}
                           width="100%"
                           height="100%"
                           frameBorder="0"
@@ -416,21 +419,19 @@ export default function GameRoom(props: any = {}) {
                           allowFullScreen
                           style={{ border: "none" }}
                           title="Pornhub Video"
-                          onError={() => {
-                            toast.error("Video failed to load. Try next round.");
-                          }}
+                          onError={() => toast.error("Video failed to load. Try next round.")}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-black/50">
-                          <p className="text-orange-300">Video ID not available</p>
+                          <p className="text-orange-300">Video unavailable</p>
                         </div>
                       )}
                     </div>
                   ) : (
                     <div className="w-full h-96 bg-black rounded overflow-hidden flex items-center justify-center">
-                      {currentContent.thumbnail ? (
+                      {currentImageUrl ? (
                         <img
-                          src={ZERO_CARD_MODE ? getZeroCardContentImageUrl(currentContent.thumbnail) : `/api/proxy/pornhub/image?url=${encodeURIComponent(currentContent.thumbnail)}`}
+                          src={currentImageUrl}
                           alt="Content"
                           className="w-full h-full object-cover"
                           onError={(e) => {
@@ -450,35 +451,26 @@ export default function GameRoom(props: any = {}) {
                 )}
               </Card>
 
-              {/* Answer Section */}
               {!showAnswer ? (
                 <div className="flex gap-2">
                   <Input
                     placeholder="Enter your answer (actor name or title)..."
                     value={answer}
                     onChange={(e) => setAnswer(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && handleSubmitAnswer()}
+                    onKeyDown={(e) => e.key === "Enter" && handleSubmitAnswer()}
                     className="flex-1 bg-black/50 border-orange-500/30 text-white"
                     disabled={timeLeft === 0}
                   />
-                  <Button
-                    onClick={handleSubmitAnswer}
-                    disabled={timeLeft === 0}
-                    className="bg-orange-500 hover:bg-orange-600 text-black font-bold"
-                  >
+                  <Button onClick={handleSubmitAnswer} disabled={timeLeft === 0} className="bg-orange-500 hover:bg-orange-600 text-black font-bold">
                     Submit
                   </Button>
                 </div>
               ) : (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="space-y-4"
-                >
+                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="space-y-4">
                   <Card className={`p-6 ${isCorrect ? "bg-green-900/30 border-green-500/30" : "bg-red-900/30 border-red-500/30"}`}>
                     <p className="text-lg font-bold mb-2">{isCorrect ? "✅ Correct!" : "❌ Wrong"}</p>
                     <p className="text-sm">
-                      Correct Answer(s): <span className="font-bold text-orange-400">{correctAnswers && correctAnswers.length > 0 ? correctAnswers.join(" / ") : "Unknown"}</span>
+                      Correct Answer(s): <span className="font-bold text-orange-400">{correctAnswers.length > 0 ? correctAnswers.join(" / ") : "Unknown"}</span>
                     </p>
                     <p className="text-sm mt-2">
                       Your answer: <span className="font-bold">{answer || "(No answer)"}</span>
@@ -489,12 +481,8 @@ export default function GameRoom(props: any = {}) {
                   </Card>
 
                   <div className="flex gap-2">
-                    <Button onClick={handleNextRound} className="flex-1 bg-orange-500 text-black font-bold">
-                      Next Round
-                    </Button>
-                    <Button onClick={() => navigate("/dashboard")} variant="outline" className="flex-1 border-orange-500/30">
-                      Exit Game
-                    </Button>
+                    <Button onClick={handleNextRound} className="flex-1 bg-orange-500 text-black font-bold">Next Round</Button>
+                    <Button onClick={() => navigate("/dashboard")} variant="outline" className="flex-1 border-orange-500/30">Exit Game</Button>
                   </div>
                 </motion.div>
               )}
@@ -502,53 +490,43 @@ export default function GameRoom(props: any = {}) {
           ) : null}
         </div>
 
-        {/* Chat & Room Info Section */}
         <div className="space-y-4">
-          {/* Room Code */}
           {roomCode && (
             <Card className="p-4 bg-gradient-to-br from-blue-500/10 to-blue-500/5 border border-blue-500/30">
               <p className="text-sm text-blue-300 mb-2">Room Code:</p>
               <div className="flex gap-2">
                 <Input value={roomCode} readOnly className="bg-black/50 border-blue-500/30 text-white text-sm" />
-                <Button
-                  onClick={copyRoomCode}
-                  size="sm"
-                  className="bg-blue-500 hover:bg-blue-600"
-                >
+                <Button onClick={copyRoomCode} size="sm" className="bg-blue-500 hover:bg-blue-600">
                   {copied ? <Check size={16} /> : <Copy size={16} />}
                 </Button>
               </div>
             </Card>
           )}
 
-          {/* Players */}
-          {players.length > 0 && (
-            <Card className="p-4 bg-gradient-to-br from-purple-500/10 to-purple-500/5 border border-purple-500/30">
-              <p className="text-sm font-bold text-purple-300 mb-2">Players ({players.length})</p>
-              <div className="space-y-1">
-                {players.map((player) => (
-                  <div key={player.id} className="flex justify-between text-sm">
-                    <span className="text-gray-300">{player.name}</span>
-                    <span className="text-purple-400 font-bold">{player.score} pts</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
+          <Card className="p-4 bg-black/40 border border-orange-500/20">
+            <h3 className="font-semibold mb-3">Players</h3>
+            <div className="space-y-2">
+              {players.length > 0 ? players.map((player) => (
+                <div key={player.id} className="flex items-center justify-between p-2 rounded bg-orange-500/5 border border-orange-500/10">
+                  <span>{player.name}</span>
+                  <span className="text-orange-400">{player.score}</span>
+                </div>
+              )) : (
+                <p className="text-sm text-orange-300">Waiting for players...</p>
+              )}
+            </div>
+          </Card>
 
-          {/* Chat */}
-          <Card className="p-4 bg-gradient-to-br from-orange-500/10 to-orange-500/5 border border-orange-500/30 h-96 flex flex-col">
-            <h3 className="font-bold mb-3 text-orange-400">Room Chat</h3>
-            <div className="flex-1 overflow-y-auto space-y-2 mb-3 text-sm">
-              {chatMessages.length === 0 ? (
-                <p className="text-gray-500">No messages yet</p>
-              ) : (
-                chatMessages.map((msg, idx) => (
-                  <div key={idx} className="break-words">
-                    <span className="font-bold text-orange-400">{msg.userName}:</span>
-                    <span className="text-gray-300 ml-2">{msg.message}</span>
-                  </div>
-                ))
+          <Card className="p-4 bg-black/40 border border-orange-500/20">
+            <h3 className="font-semibold mb-3">Chat</h3>
+            <div className="space-y-2 max-h-64 overflow-y-auto mb-3">
+              {chatMessages.length > 0 ? chatMessages.map((msg, index) => (
+                <div key={index} className="text-sm p-2 rounded bg-orange-500/5 border border-orange-500/10">
+                  <span className="text-orange-400 font-semibold">{msg.userName}: </span>
+                  <span>{msg.message}</span>
+                </div>
+              )) : (
+                <p className="text-sm text-orange-300">No messages yet</p>
               )}
             </div>
             <div className="flex gap-2">
@@ -556,10 +534,10 @@ export default function GameRoom(props: any = {}) {
                 placeholder="Type message..."
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && handleSendChat()}
-                className="flex-1 bg-black/50 border-orange-500/30 text-white text-sm"
+                onKeyDown={(e) => e.key === "Enter" && handleSendChat()}
+                className="bg-black/50 border-orange-500/30 text-white"
               />
-              <Button onClick={handleSendChat} size="sm" className="bg-orange-500 hover:bg-orange-600">
+              <Button onClick={handleSendChat} className="bg-orange-500 hover:bg-orange-600 text-black">
                 <Send size={16} />
               </Button>
             </div>

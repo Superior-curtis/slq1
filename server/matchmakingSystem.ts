@@ -11,6 +11,7 @@ export interface Player {
   socketId: string;
   joinedAt: number;
   rating: number;
+  gameMode: "picture" | "video";
 }
 
 export interface MatchmakingQueue {
@@ -24,6 +25,8 @@ export interface GameMatch {
   player2: Player;
   createdAt: number;
   status: "waiting" | "playing" | "finished";
+  roomId?: string;
+  roomCode?: string;
 }
 
 // 全局隊列
@@ -34,6 +37,7 @@ const matchmakingQueue: MatchmakingQueue = {
 
 // 活躍的遊戲匹配
 const activeMatches = new Map<string, GameMatch>();
+const playerToMatchId = new Map<string, string>();
 
 /**
  * 玩家加入隊列
@@ -65,6 +69,7 @@ export function removePlayerFromQueue(userId: string): void {
   if (index !== -1) {
     const player = matchmakingQueue.players[index];
     matchmakingQueue.players.splice(index, 1);
+    playerToMatchId.delete(userId);
     console.log(`[Matchmaking] Player ${player.username} left queue. Queue size: ${matchmakingQueue.players.length}`);
   }
 }
@@ -78,8 +83,23 @@ export function tryMatchPlayers(): GameMatch | null {
     return null;
   }
 
-  // 按等級匹配（簡單的等級匹配演算法）
-  const sortedPlayers = [...matchmakingQueue.players].sort((a, b) => a.rating - b.rating);
+  const targetGameMode = ["picture", "video" as const].find((mode) =>
+    matchmakingQueue.players.filter((player) => player.gameMode === mode).length >= 2
+  );
+
+  if (!targetGameMode) {
+    console.log(`[Matchmaking] No mode with enough players to match (${matchmakingQueue.players.length})`);
+    return null;
+  }
+
+  // 只配對相同遊戲模式的玩家，再依等級匹配
+  const sortedPlayers = [...matchmakingQueue.players]
+    .filter((player) => player.gameMode === targetGameMode)
+    .sort((a, b) => a.rating - b.rating);
+
+  if (sortedPlayers.length < 2) {
+    return null;
+  }
 
   // 找到最接近的兩個玩家
   let bestMatch: [Player, Player] | null = null;
@@ -114,6 +134,8 @@ export function tryMatchPlayers(): GameMatch | null {
   };
 
   activeMatches.set(match.matchId, match);
+  playerToMatchId.set(player1.userId, match.matchId);
+  playerToMatchId.set(player2.userId, match.matchId);
 
   console.log(`[Matchmaking] Matched ${player1.username} vs ${player2.username}. Match ID: ${match.matchId}`);
 
@@ -139,6 +161,21 @@ export function getPlayerQueuePosition(userId: string): number {
  */
 export function getActiveMatch(matchId: string): GameMatch | undefined {
   return activeMatches.get(matchId);
+}
+
+export function getMatchedRoomIdForPlayer(userId: string): string | undefined {
+  const matchId = playerToMatchId.get(userId);
+  if (!matchId) return undefined;
+  return activeMatches.get(matchId)?.roomId;
+}
+
+export function assignRoomToMatch(matchId: string, roomId: string, roomCode?: string): void {
+  const match = activeMatches.get(matchId);
+  if (!match) return;
+
+  match.roomId = roomId;
+  match.roomCode = roomCode;
+  activeMatches.set(matchId, match);
 }
 
 /**
@@ -179,6 +216,7 @@ export function getAllActiveMatches(): GameMatch[] {
  */
 export function clearQueue(): void {
   matchmakingQueue.players = [];
+  playerToMatchId.clear();
   console.log("[Matchmaking] Queue cleared");
 }
 
@@ -187,5 +225,6 @@ export function clearQueue(): void {
  */
 export function clearAllMatches(): void {
   activeMatches.clear();
+  playerToMatchId.clear();
   console.log("[Matchmaking] All matches cleared");
 }

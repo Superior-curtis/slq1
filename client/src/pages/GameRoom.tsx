@@ -59,6 +59,13 @@ export default function GameRoom(props: any = {}) {
     }
   }, [playableCategories, selectedCategory]);
 
+  useEffect(() => {
+    if (!gameStarted && gameType !== "duel") {
+      setRoomId(null);
+      setRoomCode(null);
+    }
+  }, [gameStarted, gameType]);
+
   const { data: contentData, refetch: refetchContent } = trpc.content.getRandomVideos.useQuery(
     { category: selectedCategory || "all", count: 1 },
     { enabled: gameStarted && !showAnswer, staleTime: 0 }

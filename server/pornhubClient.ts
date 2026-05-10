@@ -19,9 +19,8 @@ interface PornhubVideo {
  */
 export async function getCategories(): Promise<string[]> {
   try {
-    const categories = await scraper.scrapeCategories();
-    const specialCategories = ["trending", "famous-actor", "pornstars"];
-    return Array.from(new Set([...categories, ...specialCategories]));
+    // Use pornhubApiWrapper which has the full 140+ category list
+    return await pornhubApiWrapper.getPornhubCategories();
   } catch (error) {
     console.error("[Pornhub Client] Failed to get categories:", error);
     return ["trending", "famous-actor", "pornstars"];

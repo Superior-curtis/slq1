@@ -84,8 +84,7 @@ export default function GameRoom(props: any = {}) {
 
   const { data: categoriesData } = trpc.content.getCategories.useQuery();
   const categories = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []);
-  const fallbackCategories = ["trending", "famous-actor", "pornstars", "amateur", "anal", "asian", "milf", "teen", "threesome"];
-  const playableCategories = Array.from(new Set([...fallbackCategories, ...categories].filter((category) => category !== "all")));
+  const playableCategories = Array.from(new Set(categories.map((category: string) => category.trim()).filter(Boolean)));
 
   useEffect(() => {
     if (!selectedCategory && playableCategories.length > 0) {
@@ -122,6 +121,7 @@ export default function GameRoom(props: any = {}) {
 
   const selectedCategoryLabel = selectedCategory || "Popular Mix";
   const currentContent = contentData as any | undefined;
+  const contentHasResolved = contentData !== undefined;
   const getVideoEmbedId = (content: any) => {
     const directId = String(content?.sourceId || content?.id || "");
     if (directId && !directId.startsWith("mock_") && !directId.startsWith("sample_")) {
@@ -278,7 +278,7 @@ export default function GameRoom(props: any = {}) {
         const room = await joinRoomByCodeMutation.mutateAsync({ roomCode: duelCode.trim().toUpperCase() });
         setRoomId(room.id);
         setRoomCode(room.roomCode);
-        setGameStarted(true);
+        setGameStarted(false);
         setGameType("duel");
         resetRoundState();
         toast.success(`Joined duel room ${room.roomCode}`);
@@ -335,6 +335,8 @@ export default function GameRoom(props: any = {}) {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const duelReadyToStart = gameType !== "duel" || !roomCode || players.length >= 2;
 
   if (!isAuthenticated) {
     return (
@@ -425,12 +427,16 @@ export default function GameRoom(props: any = {}) {
               <Button
                 onClick={() => {
                   if (gameType === "duel" && roomCode && !gameStarted) {
+                    if (!duelReadyToStart) {
+                      toast.info("Waiting for both players to join the duel room.");
+                      return;
+                    }
                     setGameStarted(true);
                   } else {
                     handlePrimaryAction();
                   }
                 }}
-                disabled={joinQueueMutation.isPending || createRoomMutation.isPending || joinRoomByCodeMutation.isPending}
+                disabled={joinQueueMutation.isPending || createRoomMutation.isPending || joinRoomByCodeMutation.isPending || (!duelReadyToStart && gameType === "duel" && !!roomCode && !gameStarted)}
                 className="w-full bg-orange-500 hover:bg-orange-600 text-black font-bold disabled:opacity-50"
               >
                 {gameType === "random" && joinQueueMutation.isPending ? (
@@ -465,6 +471,7 @@ export default function GameRoom(props: any = {}) {
                       </Button>
                     </div>
                     <p className="text-xs text-blue-400 mt-2">Share this code so the other player can join the duel.</p>
+                    <p className="text-xs text-blue-300 mt-1">Players ready: {players.length}/2</p>
                   </Card>
                   <Card className="p-4 bg-black/40 border border-orange-500/20 text-center mt-4">
                     <p className="text-sm text-orange-300">Waiting for opponent</p>
@@ -550,6 +557,13 @@ export default function GameRoom(props: any = {}) {
                       )}
                     </div>
                   )
+                ) : contentHasResolved ? (
+                  <div className="w-full h-96 flex items-center justify-center text-center px-6">
+                    <div className="space-y-2">
+                      <p className="text-orange-300 font-semibold">No real Pornhub content available right now.</p>
+                      <p className="text-sm text-orange-400">The scraper returned nothing for this category. Try another category or refresh later.</p>
+                    </div>
+                  </div>
                 ) : (
                   <div className="w-full h-96 flex items-center justify-center">
                     <Loader2 className="animate-spin text-orange-400" size={48} />

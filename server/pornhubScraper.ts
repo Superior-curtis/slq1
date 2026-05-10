@@ -53,7 +53,12 @@ export async function scrapeCategories(): Promise<string[]> {
     // 檢查快取
     if (categoriesCache && Date.now() - cacheTime < CACHE_DURATION) {
       console.log("[Pornhub Scraper] Using cached categories");
-      return categoriesCache;
+      return categoriesCache
+        .map((category) => category.trim().toLowerCase())
+        .filter((category) => category.length > 0)
+        .filter((category) => /[a-z]/i.test(category))
+        .filter((category) => !/^\d+$/.test(category))
+        .filter((category) => category.length < 50);
     }
 
     console.log("[Pornhub Scraper] Fetching categories from Pornhub...");
@@ -93,43 +98,18 @@ export async function scrapeCategories(): Promise<string[]> {
       }
     });
 
-    let result = Array.from(categories).filter((c) => c.length > 0);
+    let result = Array.from(categories)
+      .map((category) => category.trim().toLowerCase())
+      .filter((category) => category.length > 0)
+      .filter((category) => /[a-z]/i.test(category))
+      .filter((category) => !/^\d+$/.test(category))
+      .filter((category) => category.length < 50);
 
-    // 如果沒有找到，使用默認分類
+    result = Array.from(new Set(result));
+
     if (result.length === 0) {
-      console.log("[Pornhub Scraper] No categories found, using defaults");
-      result = [
-        "amateur",
-        "anal",
-        "asian",
-        "bbw",
-        "blonde",
-        "blowjob",
-        "bondage",
-        "brunette",
-        "creampie",
-        "cumshot",
-        "ebony",
-        "fetish",
-        "gangbang",
-        "gay",
-        "hairy",
-        "handjob",
-        "hd",
-        "homemade",
-        "interracial",
-        "lesbian",
-        "mature",
-        "milf",
-        "orgasm",
-        "pov",
-        "redhead",
-        "rough",
-        "squirt",
-        "teen",
-        "threesome",
-        "toys",
-      ];
+      console.log("[Pornhub Scraper] No categories found");
+      return [];
     }
 
     // 快取結果
@@ -262,18 +242,10 @@ export async function scrapeVideos(query: string, category?: string, count: numb
     });
 
     console.log(`[Pornhub Scraper] Found ${videos.length} videos`);
-    
-    // 如果沒有找到任何影片，返回 fallback 數據
-    if (videos.length === 0) {
-      console.log("[Pornhub Scraper] No videos found, returning fallback data");
-      return generateFallbackVideos(category, count);
-    }
-    
     return videos;
   } catch (error) {
     console.error("[Pornhub Scraper] Failed to scrape videos:", error);
-    // 返回 fallback 數據而不是空陣列
-    return generateFallbackVideos(category, count);
+    return [];
   }
 }
 
@@ -361,18 +333,10 @@ export async function scrapeRandomVideos(category?: string, count: number = 5): 
     const shuffled = videos.sort(() => Math.random() - 0.5).slice(0, count);
 
     console.log(`[Pornhub Scraper] Returning ${shuffled.length} random videos`);
-    
-    // 如果沒有找到任何影片，返回 fallback 數據
-    if (shuffled.length === 0) {
-      console.log("[Pornhub Scraper] No videos found, returning fallback data");
-      return generateFallbackVideos(category, count);
-    }
-    
     return shuffled;
   } catch (error) {
     console.error("[Pornhub Scraper] Failed to scrape random videos:", error);
-    // 返回 fallback 數據而不是空陣列
-    return generateFallbackVideos(category, count);
+    return [];
   }
 }
 

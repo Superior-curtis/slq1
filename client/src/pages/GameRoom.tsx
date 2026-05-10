@@ -45,7 +45,7 @@ export default function GameRoom(props: any = {}) {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const startEmittedRoomIdRef = useRef<string | null>(null);
 
-  const { isConnected, chatMessages, players, sendChatMessage, startGame } = useGameSocket(
+  const { isConnected, chatMessages, players, sendChatMessage, startGame, socket } = useGameSocket(
     roomId || undefined,
     user?.id != null ? String(user.id) : undefined,
     user?.name
@@ -220,6 +220,14 @@ export default function GameRoom(props: any = {}) {
 
     setRoomId(createdRoom.id);
     setRoomCode(createdRoom.roomCode);
+    // Ensure the server's in-memory socket room exists so players can join immediately
+    try {
+      if (socket && typeof socket.emit === "function") {
+        socket.emit("ensureRoom", { roomId: createdRoom.id });
+      }
+    } catch (e) {
+      console.warn("Failed to emit ensureRoom", e);
+    }
     resetRoundState();
     return createdRoom;
   };

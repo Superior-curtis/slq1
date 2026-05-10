@@ -24,12 +24,30 @@ export function initializeSocketServer(httpServer: Server) {
 
   io.on("connection", (socket) => {
     console.log(`[Socket.IO] User connected: ${socket.id}`);
+    
+    // Ensure a room exists in-memory (created by API) so sockets can join it
+    socket.on("ensureRoom", (data: { roomId: string }) => {
+      const { roomId } = data || {} as any;
+      if (!roomId) return;
+      if (!gameRooms.has(roomId)) {
+        gameRooms.set(roomId, {
+          id: roomId,
+          players: new Map(),
+          gameStarted: false,
+          currentRound: 1,
+          timeLeft: 30,
+          chatMessages: [],
+        });
+        console.log(`[Socket.IO] ensureRoom created in-memory: ${roomId}`);
+      }
+    });
 
     // 加入遊戲房間
-    socket.on("joinGameRoom", (data: { roomId: string; userName?: string }) => {
-      const { roomId } = data;
+    socket.on("joinGameRoom", (data: { roomId: string; userName?: string }, ack?: (res: any) => void) => {
+      console.log(`[Socket.IO] joinGameRoom event from ${socket.id}:`, data);
+      const { roomId } = data || {} as any;
       const userId = socket.id;
-      const userName = data.userName || `Player_${userId.slice(0, 6)}`;
+      const userName = (data && data.userName) || `Player_${userId.slice(0, 6)}`;
 
       // 創建或獲取房間
       if (!gameRooms.has(roomId)) {
@@ -63,21 +81,33 @@ export function initializeSocketServer(httpServer: Server) {
       });
 
       console.log(`[Socket.IO] User ${userId} joined room ${roomId}`);
+      try {
+        if (typeof ack === "function") ack({ ok: true, roomId });
+      } catch (e) {
+        // noop
+      }
     });
 
     // 發送聊天消息
-    socket.on("chatMessage", (data: { roomId?: string; userId?: string; username?: string; message: string }) => {
-      const roomId = data.roomId || playerToRoom.get(socket.id);
-      if (!roomId) return;
+    socket.on("chatMessage", (data: { roomId?: string; userId?: string; username?: string; message: string }, ack?: (res: any) => void) => {
+      console.log(`[Socket.IO] chatMessage event from ${socket.id}:`, data);
+      const roomId = (data && data.roomId) || playerToRoom.get(socket.id);
+      if (!roomId) {
+        if (typeof ack === "function") ack({ ok: false, error: "no_room" });
+        return;
+      }
 
       const room = gameRooms.get(roomId);
-      if (!room) return;
+      if (!room) {
+        if (typeof ack === "function") ack({ ok: false, error: "room_not_found" });
+        return;
+      }
 
       const player = room.players.get(socket.id);
-      const userName = data.username || player?.name || `Player_${socket.id.slice(0, 6)}`;
+      const userName = (data && data.username) || player?.name || `Player_${socket.id.slice(0, 6)}`;
 
       const chatMessage = {
-        userId: data.userId || socket.id,
+        userId: (data && data.userId) || socket.id,
         userName,
         message: data.message,
         timestamp: Date.now(),
@@ -94,6 +124,7 @@ export function initializeSocketServer(httpServer: Server) {
       io.to(roomId).emit("chatMessage", chatMessage);
 
       console.log(`[Socket.IO] Message in ${roomId}: ${userName}: ${data.message}`);
+      if (typeof ack === "function") ack({ ok: true });
     });
 
     // 提交答案

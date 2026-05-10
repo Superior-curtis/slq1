@@ -66,7 +66,22 @@ export function useGameSocket(roomId?: string, userId?: string, userName?: strin
       console.log("[Socket.IO] Connected");
       setIsConnected(true);
 
-      // 如果有 roomId，加入房間
+      // 如果有 roomId，立即加入房間（避免 race condition）
+      if (roomId && userId && userName) {
+        socket.emit("joinGameRoom", { roomId, userName });
+      }
+    });
+
+    socket.on("connect_error", (err) => {
+      console.error("[Socket.IO] connect_error:", err);
+    });
+
+    socket.on("reconnect_attempt", (attempt) => {
+      console.warn(`[Socket.IO] reconnect_attempt: ${attempt}`);
+    });
+
+    socket.on("reconnect_failed", () => {
+      console.error("[Socket.IO] reconnect_failed");
     });
 
     socket.on("disconnect", () => {

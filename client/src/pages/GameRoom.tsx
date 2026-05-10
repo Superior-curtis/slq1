@@ -39,11 +39,17 @@ export default function GameRoom(props: any = {}) {
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [score, setScore] = useState(0);
   const [round, setRound] = useState(1);
+  const [contentVersion, setContentVersion] = useState(0);
   const [copied, setCopied] = useState(false);
   const [chatInput, setChatInput] = useState("");
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const startEmittedRoomIdRef = useRef<string | null>(null);
 
-  const { isConnected, chatMessages, players, sendChatMessage, startGame } = useGameSocket(roomId || undefined, user?.name);
+  const { isConnected, chatMessages, players, sendChatMessage, startGame } = useGameSocket(
+    roomId || undefined,
+    user?.id != null ? String(user.id) : undefined,
+    user?.name
+  );
 
   const { data: categoriesData } = trpc.content.getCategories.useQuery();
   const categories = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []);
@@ -66,8 +72,8 @@ export default function GameRoom(props: any = {}) {
     }
   }, [gameStarted, gameType]);
 
-  const { data: contentData, refetch: refetchContent } = trpc.content.getRandomVideos.useQuery(
-    { category: selectedCategory || "all", count: 1 },
+  const { data: contentData, refetch: refetchContent } = trpc.game.getContent.useQuery(
+    { type: gameMode, category: selectedCategory || undefined },
     { enabled: gameStarted && !showAnswer, staleTime: 0 }
   );
 
@@ -84,13 +90,28 @@ export default function GameRoom(props: any = {}) {
   );
 
   const selectedCategoryLabel = selectedCategory || "Popular Mix";
-  const currentContent = contentData?.data?.[0] as any | undefined;
+  const currentContent = contentData as any | undefined;
+  const getVideoEmbedId = (content: any) => {
+    const directId = String(content?.sourceId || content?.id || "");
+    if (directId && !directId.startsWith("mock_") && !directId.startsWith("sample_")) {
+      return directId;
+    }
+
+    const sourceUrl = String(content?.sourceUrl || content?.url || "");
+    const viewKeyMatch = sourceUrl.match(/[?&]viewkey=([^&]+)/i);
+    if (viewKeyMatch?.[1]) return viewKeyMatch[1];
+
+    const trailingMatch = sourceUrl.match(/\/([^/?#]+)(?:\?.*)?$/);
+    if (trailingMatch?.[1]) return trailingMatch[1];
+
+    return directId;
+  };
   const correctAnswers = currentContent?.actors && currentContent.actors.length > 0
     ? currentContent.actors
     : currentContent?.correctAnswers && currentContent.correctAnswers.length > 0
       ? currentContent.correctAnswers
       : [currentContent?.title || "Unknown"];
-  const currentVideoId = currentContent?.sourceId || currentContent?.id || "";
+  const currentVideoId = getVideoEmbedId(currentContent);
   const currentImageUrl = currentContent?.thumbnail || currentContent?.sourceUrl || "";
 
   useEffect(() => {
@@ -113,7 +134,7 @@ export default function GameRoom(props: any = {}) {
     if (gameStarted && !showAnswer && round > 0) {
       refetchContent();
     }
-  }, [round, showAnswer, gameStarted, refetchContent]);
+  }, [round, contentVersion, showAnswer, gameStarted, refetchContent]);
 
   useEffect(() => {
     if (!gameStarted || !roomId || !isConnected) return;
@@ -121,6 +142,17 @@ export default function GameRoom(props: any = {}) {
     startEmittedRoomIdRef.current = roomId;
     startGame();
   }, [gameStarted, isConnected, roomId, startGame]);
+
+  const resetRoundState = () => {
+    setAnswer("");
+    setResponseTime(0);
+    setGameStartTime(Date.now());
+    setTimeLeft(30);
+    setShowAnswer(false);
+    setIsCorrect(null);
+    setRound(1);
+    setContentVersion((prev) => prev + 1);
+  };
 
   useEffect(() => {
     const matchedRoomId = getQueueStatusQuery.data?.matchedRoomId;
@@ -170,6 +202,7 @@ export default function GameRoom(props: any = {}) {
     setAnswer("");
     setIsCorrect(null);
     setGameStartTime(Date.now());
+    setContentVersion((prev) => prev + 1);
   };
 
   const handleSendChat = () => {
@@ -187,8 +220,7 @@ export default function GameRoom(props: any = {}) {
 
     setRoomId(createdRoom.id);
     setRoomCode(createdRoom.roomCode);
-    setTimeLeft(30);
-    setGameStartTime(Date.now());
+    resetRoundState();
     return createdRoom;
   };
 
@@ -199,8 +231,8 @@ export default function GameRoom(props: any = {}) {
         setRoomId(room.id);
         setRoomCode(room.roomCode);
         setGameStarted(true);
-        setTimeLeft(30);
-        setGameStartTime(Date.now());
+        setGameType("duel");
+        resetRoundState();
         toast.success(`Joined duel room ${room.roomCode}`);
         return;
       }
@@ -208,6 +240,7 @@ export default function GameRoom(props: any = {}) {
       if (gameType === "duel") {
         const room = await openRoom(gameType);
         setGameStarted(false);
+        setGameType("duel");
         toast.success(`Duel room created: ${room.roomCode}. Share the code with the other player.`);
         return;
       }
@@ -227,8 +260,7 @@ export default function GameRoom(props: any = {}) {
           setRoomId(response.matchedRoomId);
           setRoomCode(response.roomCode || response.matchedRoomId);
           setGameStarted(true);
-          setTimeLeft(30);
-          setGameStartTime(Date.now());
+          resetRoundState();
           toast.success(`Matched! Room ${response.roomCode || response.matchedRoomId}`);
         } else {
           setIsWaitingForMatch(true);
@@ -241,6 +273,7 @@ export default function GameRoom(props: any = {}) {
 
       const room = await openRoom(gameType);
       setGameStarted(true);
+      resetRoundState();
       toast.success(`Room ready: ${room.roomCode}`);
     } catch {
       toast.error(gameType === "random" ? "Failed to join queue" : "Failed to create room");
@@ -417,17 +450,29 @@ export default function GameRoom(props: any = {}) {
                   gameMode === "video" ? (
                     <div className="w-full aspect-video bg-black rounded overflow-hidden">
                       {currentVideoId ? (
-                        <iframe
-                          src={`https://www.pornhub.com/embed/${currentVideoId}`}
-                          width="100%"
-                          height="100%"
-                          frameBorder="0"
-                          allow="autoplay; encrypted-media"
-                          allowFullScreen
-                          style={{ border: "none" }}
-                          title="Pornhub Video"
-                          onError={() => toast.error("Video failed to load. Try next round.")}
-                        />
+                            <div className="relative w-full h-full">
+                              <iframe
+                                src={`https://www.pornhub.com/embed/${currentVideoId}${soundEnabled ? "" : "?mute=1"}`}
+                                width="100%"
+                                height="100%"
+                                frameBorder="0"
+                                allow={soundEnabled ? "autoplay; encrypted-media" : "encrypted-media"}
+                                allowFullScreen
+                                style={{ border: "none" }}
+                                title="Pornhub Video"
+                                onError={() => toast.error("Video failed to load. Try next round.")}
+                              />
+                              <div className="absolute right-3 top-3">
+                                <Button
+                                  onClick={() => setSoundEnabled((prev) => !prev)}
+                                  size="sm"
+                                  variant="secondary"
+                                  className="bg-black/70 text-white border border-white/10"
+                                >
+                                  {soundEnabled ? "Sound on" : "Sound off"}
+                                </Button>
+                              </div>
+                            </div>
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-black/50">
                           <p className="text-orange-300">Video unavailable</p>
@@ -488,7 +533,15 @@ export default function GameRoom(props: any = {}) {
                   </Card>
 
                   <div className="flex gap-2">
-                    <Button onClick={handleNextRound} className="flex-1 bg-orange-500 text-black font-bold">Next Round</Button>
+                    <Button
+                      onClick={() => {
+                        setSoundEnabled(true);
+                        handleNextRound();
+                      }}
+                      className="flex-1 bg-orange-500 text-black font-bold"
+                    >
+                      Next Round
+                    </Button>
                     <Button onClick={() => navigate("/dashboard")} variant="outline" className="flex-1 border-orange-500/30">Exit Game</Button>
                   </div>
                 </motion.div>

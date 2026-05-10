@@ -17,7 +17,7 @@ interface ChatMessage {
   timestamp: number;
 }
 
-export function useGameSocket(roomId?: string, userName?: string) {
+export function useGameSocket(roomId?: string, userId?: string, userName?: string) {
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [gameState, setGameState] = useState<GameRoomState | null>(null);
@@ -67,9 +67,6 @@ export function useGameSocket(roomId?: string, userName?: string) {
       setIsConnected(true);
 
       // 如果有 roomId，加入房間
-      if (roomId) {
-        socket.emit("joinGameRoom", { roomId, userName });
-      }
     });
 
     socket.on("disconnect", () => {
@@ -116,6 +113,13 @@ export function useGameSocket(roomId?: string, userName?: string) {
     };
   }, [roomId, userName]);
 
+  useEffect(() => {
+    if (ZERO_CARD_MODE) return;
+    if (!socketRef.current || !isConnected || !roomId || !userId || !userName) return;
+
+    socketRef.current.emit("joinGameRoom", { roomId, userId, username: userName });
+  }, [roomId, userId, userName, isConnected]);
+
   const sendChatMessage = (message: string) => {
     if (ZERO_CARD_MODE) {
       setChatMessages((prev) => [
@@ -132,7 +136,12 @@ export function useGameSocket(roomId?: string, userName?: string) {
     }
 
     if (socketRef.current && isConnected) {
-      socketRef.current.emit("chatMessage", { message });
+      socketRef.current.emit("chatMessage", {
+        roomId,
+        userId: userId || "local-player",
+        username: userName || "Anonymous",
+        message,
+      });
     }
   };
 
@@ -152,8 +161,8 @@ export function useGameSocket(roomId?: string, userName?: string) {
       return;
     }
 
-    if (socketRef.current && isConnected) {
-      socketRef.current.emit("startGame");
+    if (socketRef.current && isConnected && roomId) {
+      socketRef.current.emit("startGame", { roomId });
     }
   };
 

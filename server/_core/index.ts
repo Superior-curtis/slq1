@@ -10,6 +10,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { initializeSocketServer } from "../socketServer";
+import { initializeSampleContent } from "../contentManager";
 
 const COOKIE_NAME = process.env.COOKIE_NAME || "app_session_id";
 
@@ -66,6 +67,7 @@ async function ensureDemoUserExists() {
 async function startServer() {
   // Create demo user on startup
   await ensureDemoUserExists();
+  initializeSampleContent();
 
   const app = express();
   const server = createServer(app);

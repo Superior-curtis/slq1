@@ -7,6 +7,7 @@ import superjson from "superjson";
 import App from "./App";
 import { getLoginUrl } from "./const";
 import { BACKEND_URL, ZERO_CARD_MODE, zeroCardFetch } from "@/lib/zeroCard";
+import { isFirebaseEnabled } from "@/lib/firebase";
 import "./index.css";
 
 const queryClient = new QueryClient();
@@ -50,7 +51,7 @@ const trpcClient = trpc.createClient({
       url: apiUrl,
       transformer: superjson,
       fetch(input, init) {
-        if (ZERO_CARD_MODE) {
+        if (ZERO_CARD_MODE || isFirebaseEnabled) {
           return zeroCardFetch(input, init);
         }
 

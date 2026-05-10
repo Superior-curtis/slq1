@@ -66,19 +66,19 @@ export function initializeSocketServer(httpServer: Server) {
     });
 
     // 發送聊天消息
-    socket.on("chatMessage", (data: { message: string }) => {
-      const roomId = playerToRoom.get(socket.id);
+    socket.on("chatMessage", (data: { roomId?: string; userId?: string; username?: string; message: string }) => {
+      const roomId = data.roomId || playerToRoom.get(socket.id);
       if (!roomId) return;
 
       const room = gameRooms.get(roomId);
       if (!room) return;
 
       const player = room.players.get(socket.id);
-      if (!player) return;
+      const userName = data.username || player?.name || `Player_${socket.id.slice(0, 6)}`;
 
       const chatMessage = {
-        userId: socket.id,
-        userName: player.name,
+        userId: data.userId || socket.id,
+        userName,
         message: data.message,
         timestamp: Date.now(),
       };
@@ -93,7 +93,7 @@ export function initializeSocketServer(httpServer: Server) {
       // 廣播到房間內所有玩家
       io.to(roomId).emit("chatMessage", chatMessage);
 
-      console.log(`[Socket.IO] Message in ${roomId}: ${player.name}: ${data.message}`);
+      console.log(`[Socket.IO] Message in ${roomId}: ${userName}: ${data.message}`);
     });
 
     // 提交答案
@@ -119,8 +119,8 @@ export function initializeSocketServer(httpServer: Server) {
     });
 
     // 開始遊戲
-    socket.on("startGame", () => {
-      const roomId = playerToRoom.get(socket.id);
+    socket.on("startGame", (data: { roomId?: string } = {}) => {
+      const roomId = data.roomId || playerToRoom.get(socket.id);
       if (!roomId) return;
 
       const room = gameRooms.get(roomId);

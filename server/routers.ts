@@ -210,16 +210,47 @@ export const appRouter = router({
         })
       )
       .query(async ({ input }) => {
-        // Try to get from Pornhub API first
         try {
-          if (input.type === "video") {
-            if (input.category) {
-              const content = await pornhubApiWrapper.getRandomPornhubVideoByCategory(input.category);
-              if (content) return content;
-            } else {
-              const content = await pornhubApiWrapper.getRandomPornhubVideo();
-              if (content) return content;
+          const videos = input.category
+            ? await pornhubClient.getRandomVideos(input.category, 1)
+            : await pornhubClient.getRandomVideos(undefined, 1);
+
+          const video = videos[0];
+          if (video) {
+            const answers = Array.isArray(video.actors) && video.actors.length > 0
+              ? video.actors
+              : [video.title?.split("-")[0]?.trim() || video.title || "Unknown"];
+            const categories = Array.isArray(video.categories) && video.categories.length > 0
+              ? video.categories
+              : input.category
+                ? [input.category]
+                : [];
+
+            if (input.type === "video") {
+              return {
+                id: video.id,
+                type: "video" as const,
+                sourceId: video.sourceId || video.id,
+                sourceUrl: video.url,
+                title: video.title,
+                actors: video.actors || [],
+                categories,
+                correctAnswers: answers,
+                thumbnail: video.thumbnail,
+              };
             }
+
+            return {
+              id: video.id,
+              type: "picture" as const,
+              sourceId: video.sourceId || video.id,
+              sourceUrl: video.thumbnail || video.url,
+              title: video.title,
+              actors: video.actors || [],
+              categories,
+              correctAnswers: answers,
+              thumbnail: video.thumbnail || video.url,
+            };
           }
         } catch (error) {
           console.error("[Game] Pornhub API error:", error);
@@ -509,19 +540,19 @@ export const appRouter = router({
         matchedRoomId: z.string().optional(),
         roomCode: z.string().optional(),
       }))
-      .query(({ ctx, input }) => {
+      .query(async ({ ctx, input }) => {
         const userId = ctx.user?.id != null ? String(ctx.user.id) : input?.guestId ?? "";
         const position = matchmakingSystem.getPlayerQueuePosition(userId);
         const queueSize = matchmakingSystem.getQueueSize();
         const matchedRoomId = matchmakingSystem.getMatchedRoomIdForPlayer(userId);
-        const matchedRoom = matchedRoomId ? undefined : undefined;
+        const matchedRoom = matchedRoomId ? await db.getGameRoomById(matchedRoomId) : undefined;
         return {
           inQueue: position > 0,
           queuePosition: position,
           queueSize: queueSize,
           estimatedWaitTime: Math.max(0, (queueSize - position) * 5),
           matchedRoomId,
-          roomCode: undefined,
+          roomCode: matchedRoom?.roomCode,
         };
       }),
   }),
@@ -551,31 +582,27 @@ export const appRouter = router({
 
   // Player profile
   profile: router({
-    getStats: protectedProcedure.query(({ ctx }) => {
-      return {
-        userId: ctx.user.id,
-        name: ctx.user.name,
-        totalScore: ctx.user.totalScore || 0,
-        gamesPlayed: ctx.user.gamesPlayed || 0,
-        gamesWon: ctx.user.gamesWon || 0,
-        correctAnswers: ctx.user.correctAnswers || 0,
-        totalAnswers: ctx.user.totalAnswers || 0,
-        winRate: ctx.user.gamesPlayed > 0 ? ((ctx.user.gamesWon || 0) / ctx.user.gamesPlayed * 100).toFixed(2) : "0",
-      };
+    getStats: protectedProcedure.query(async ({ ctx }) => {
+      const stats = await gameLogic.getPlayerGameStats(ctx.user.id);
+
+      return (
+        stats || {
+          userId: ctx.user.id,
+          name: ctx.user.name,
+          totalScore: ctx.user.totalScore || 0,
+          gamesPlayed: ctx.user.gamesPlayed || 0,
+          gamesWon: ctx.user.gamesWon || 0,
+          correctAnswers: ctx.user.correctAnswers || 0,
+          totalAnswers: ctx.user.totalAnswers || 0,
+          winRate: ctx.user.gamesPlayed > 0 ? ((ctx.user.gamesWon || 0) / ctx.user.gamesPlayed * 100).toFixed(2) : "0",
+        }
+      );
     }),
 
     getHistory: protectedProcedure
       .input(z.object({ limit: z.number().default(10) }))
-      .query(({ ctx, input }) => {
-        return [
-          {
-            id: "1",
-            gameMode: "video" as const,
-            score: 850,
-            rank: 1,
-            createdAt: new Date(),
-          },
-        ];
+      .query(async ({ ctx, input }) => {
+        return await db.getUserGameHistory(ctx.user.id, input.limit);
       }),
   }),
 
@@ -597,13 +624,16 @@ export const appRouter = router({
         ];
       }),
 
-    getPlayerRank: protectedProcedure.query(({ ctx }) => {
+    getPlayerRank: protectedProcedure.query(async ({ ctx }) => {
+      const rankRow = await db.getUserLeaderboardRank(ctx.user.id);
+      const totalScore = rankRow?.totalScore ?? ctx.user.totalScore ?? 0;
+
       return {
-        rank: 1,
+        rank: rankRow?.rank ?? 0,
         userId: ctx.user.id,
         name: ctx.user.name,
-        totalScore: ctx.user.totalScore || 0,
-        percentile: 95,
+        totalScore,
+        percentile: rankRow?.rank ? Math.max(1, 100 - rankRow.rank) : 0,
       };
     }),
   }),

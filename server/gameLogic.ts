@@ -85,7 +85,7 @@ Respond with ONLY "true" or "false".`;
  * Create a new game room
  */
 export async function createNewGameRoom(
-  creatorId: number,
+  creatorId: number | null | undefined,
   gameMode: 'picture' | 'video',
   roomType: 'random' | 'duel' = 'random',
   maxPlayers: number = 2
@@ -93,18 +93,21 @@ export async function createNewGameRoom(
   const roomId = nanoid();
   const roomCode = generateRoomCode(); // Always generate unique code
 
+  // Normalize creatorId for guest rooms
+  const normalizedCreatorId = typeof creatorId === 'number' ? creatorId : 0;
+
   const room = {
     id: roomId,
     roomCode,
     roomType,
     gameMode,
-    creatorId,
-    playerIds: [creatorId],
+    creatorId: normalizedCreatorId,
+    playerIds: [normalizedCreatorId],
     maxPlayers,
     status: 'waiting' as const,
     currentRound: 0,
     totalRounds: 5,
-    playerScores: { [creatorId]: 0 }
+    playerScores: { [normalizedCreatorId]: 0 }
   };
 
   try {

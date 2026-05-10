@@ -168,7 +168,7 @@ export const appRouter = router({
 
   // Game operations
   game: router({
-    createRoom: protectedProcedure
+    createRoom: publicProcedure
       .input(
         z.object({
           roomType: z.enum(["random", "duel", "bot"]),
@@ -177,7 +177,10 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ ctx, input }) => {
-        const room = await gameLogic.createNewGameRoom(ctx.user.id, input.gameMode, input.roomType as any);
+        // Allow unauthenticated users to create rooms by passing null creatorId
+        const creatorId = ctx.user?.id ?? null;
+        const room = await gameLogic.createNewGameRoom(creatorId as any, input.gameMode, input.roomType as any);
+        if (!room) throw new Error("Failed to create room");
         return room;
       }),
 

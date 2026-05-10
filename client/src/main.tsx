@@ -14,12 +14,11 @@ const queryClient = new QueryClient();
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
   if (typeof window === "undefined") return;
-
-  const isUnauthorized = error.message === UNAUTHED_ERR_MSG;
-
-  if (!isUnauthorized) return;
-
-  window.location.href = getLoginUrl();
+  // Previously auto-redirected to login on any TRPC unauthorized error.
+  // This global redirect caused the app to always navigate to /login
+  // when background queries failed. Instead, log the error and let
+  // the UI handle access-denied states so users can still interact.
+  console.warn("API unauthorized error:", error.message);
 };
 
 queryClient.getQueryCache().subscribe(event => {

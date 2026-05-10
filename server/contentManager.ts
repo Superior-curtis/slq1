@@ -145,8 +145,8 @@ export function getRandomContent(type?: "picture" | "video", category?: string):
   }
 
   if (pool.length === 0) {
-    // Return mock content if cache is empty
-    return generateMockContent(type, category);
+    // Keep the app on the real-content path instead of seeding fake placeholders.
+    return null;
   }
 
   return pool[Math.floor(Math.random() * pool.length)];
@@ -196,30 +196,8 @@ function generateMockContent(type?: "picture" | "video", category?: string): Con
  * Initialize with sample content
  */
 export function initializeSampleContent(): void {
-  // Add sample contents
-  const sampleActors = ["Mia Khalifa", "Sunny Leone", "Abella Danger", "Riley Reid", "Lana Rhoades"];
-
-  for (let i = 0; i < 20; i++) {
-    const actor = sampleActors[Math.floor(Math.random() * sampleActors.length)];
-    const category = AVAILABLE_CATEGORIES[Math.floor(Math.random() * AVAILABLE_CATEGORIES.length)];
-    const type = Math.random() > 0.5 ? "picture" : "video";
-
-    addContent(
-      {
-        id: nanoid(),
-        type: type as "picture" | "video",
-        sourceId: `sample_${i}`,
-        sourceUrl: `https://via.placeholder.com/640x480?text=Sample+${i}`,
-        title: `Sample Content ${i} - ${actor}`,
-        actors: [actor],
-        categories: [category],
-        correctAnswers: [actor],
-        duration: type === "video" ? Math.floor(Math.random() * 3600) + 60 : undefined,
-        thumbnail: `https://via.placeholder.com/320x240?text=Thumb+${i}`,
-      },
-      [category]
-    );
-  }
+  // Intentionally left empty. Real content should come from the API/scraper path,
+  // not from preloaded placeholder samples.
 }
 
 /**

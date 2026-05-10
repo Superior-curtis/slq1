@@ -48,7 +48,7 @@ export default function GameRoom(props: any = {}) {
   const { isConnected, chatMessages, players, sendChatMessage, startGame, socket } = useGameSocket(
     roomId || undefined,
     user?.id != null ? String(user.id) : undefined,
-    user?.name ?? undefined
+    user?.name || undefined
   );
 
   // Ensure socket-side in-memory room exists and join once connected
@@ -77,7 +77,7 @@ export default function GameRoom(props: any = {}) {
       };
       socket.on("connect", onConnect);
       return () => {
-        socket.off("connect", onConnect);
+          socket.off("connect", onConnect);
       };
     }
   }, [roomId, socket, isConnected, user?.name]);
@@ -143,7 +143,16 @@ export default function GameRoom(props: any = {}) {
       ? currentContent.correctAnswers
       : [currentContent?.title || "Unknown"];
   const currentVideoId = getVideoEmbedId(currentContent);
-  const currentImageUrl = currentContent?.thumbnail || currentContent?.sourceUrl || "";
+  const isPlaceholderMedia = (url?: string) => {
+    if (!url) return false;
+    return /via\.placeholder\.com|placeholder|sample_/i.test(url);
+  };
+
+  const currentImageUrl = !isPlaceholderMedia(currentContent?.thumbnail)
+    ? currentContent?.thumbnail || ""
+    : !isPlaceholderMedia(currentContent?.sourceUrl)
+      ? currentContent?.sourceUrl || ""
+      : "";
 
   useEffect(() => {
     if (!gameStarted || showAnswer) return;

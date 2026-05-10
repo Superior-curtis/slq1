@@ -134,7 +134,7 @@ export default function Lobby() {
                     placeholder="Type a message..."
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+                    onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
                     className="bg-black/50 border-orange-500/30 text-white placeholder-gray-500"
                   />
                   <Button

@@ -310,10 +310,12 @@ export const appRouter = router({
 
   // Chat
   chat: router({
-    sendLobbyMessage: protectedProcedure
+    sendLobbyMessage: publicProcedure
       .input(z.object({ message: z.string() }))
       .mutation(({ ctx, input }) => {
-        const msg = chatSystem.addLobbyMessage(ctx.user.id, ctx.user.name || "Anonymous", input.message);
+        const userId = ctx.user?.id ?? 0;
+        const userName = ctx.user?.name || "Guest";
+        const msg = chatSystem.addLobbyMessage(userId, userName, input.message);
         return msg;
       }),
 

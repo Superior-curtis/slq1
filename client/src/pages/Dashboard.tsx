@@ -52,11 +52,9 @@ export default function Dashboard() {
           </Link>
 
           <div className="flex items-center gap-4">
-            <Link href="/lobby">
-              <Button variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-500/10">
-                Lobby
-              </Button>
-            </Link>
+            <Button asChild variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-500/10">
+              <Link href="/lobby">Lobby</Link>
+            </Button>
             <span className="text-sm text-gray-400">{user?.name}</span>
             <Button
               onClick={handleLogout}
@@ -81,39 +79,43 @@ export default function Dashboard() {
           <div className="md:col-span-2">
             <h2 className="text-3xl font-bold mb-6 text-orange-500">Select Game Mode</h2>
             <div className="grid md:grid-cols-2 gap-6">
-              <Link href="/game/picture">
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="bg-gradient-to-br from-orange-500/20 to-orange-500/5 border border-orange-500/30 rounded-lg p-8 cursor-pointer hover:border-orange-500/60 transition-colors"
-                >
-                  <div className="text-5xl mb-4">🖼️</div>
-                  <h3 className="text-2xl font-bold mb-2">Picture Mode</h3>
-                  <p className="text-gray-400 mb-4">
-                    Guess details from adult video screenshots
-                  </p>
-                  <Button className="bg-orange-500 hover:bg-orange-600 text-black font-bold w-full">
-                    Start Game
-                  </Button>
-                </motion.div>
-              </Link>
+              <Button asChild className="p-0 h-auto bg-transparent border-0 shadow-none">
+                <Link href="/game/picture">
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-gradient-to-br from-orange-500/20 to-orange-500/5 border border-orange-500/30 rounded-lg p-8 cursor-pointer hover:border-orange-500/60 transition-colors"
+                  >
+                    <div className="text-5xl mb-4">🖼️</div>
+                    <h3 className="text-2xl font-bold mb-2">Picture Mode</h3>
+                    <p className="text-gray-400 mb-4">
+                      Guess details from adult video screenshots
+                    </p>
+                    <span className="inline-flex w-full items-center justify-center rounded-md bg-orange-500 px-4 py-2 font-bold text-black">
+                      Start Game
+                    </span>
+                  </motion.div>
+                </Link>
+              </Button>
 
-              <Link href="/game/video">
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="bg-gradient-to-br from-orange-500/20 to-orange-500/5 border border-orange-500/30 rounded-lg p-8 cursor-pointer hover:border-orange-500/60 transition-colors"
-                >
-                  <div className="text-5xl mb-4">🎬</div>
-                  <h3 className="text-2xl font-bold mb-2">Video Mode</h3>
-                  <p className="text-gray-400 mb-4">
-                    Watch video clips and test your knowledge
-                  </p>
-                  <Button className="bg-orange-500 hover:bg-orange-600 text-black font-bold w-full">
-                    Start Game
-                  </Button>
-                </motion.div>
-              </Link>
+              <Button asChild className="p-0 h-auto bg-transparent border-0 shadow-none">
+                <Link href="/game/video">
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-gradient-to-br from-orange-500/20 to-orange-500/5 border border-orange-500/30 rounded-lg p-8 cursor-pointer hover:border-orange-500/60 transition-colors"
+                  >
+                    <div className="text-5xl mb-4">🎬</div>
+                    <h3 className="text-2xl font-bold mb-2">Video Mode</h3>
+                    <p className="text-gray-400 mb-4">
+                      Watch video clips and test your knowledge
+                    </p>
+                    <span className="inline-flex w-full items-center justify-center rounded-md bg-orange-500 px-4 py-2 font-bold text-black">
+                      Start Game
+                    </span>
+                  </motion.div>
+                </Link>
+              </Button>
             </div>
           </div>
 
@@ -153,17 +155,13 @@ export default function Dashboard() {
                   </p>
                 </Card>
 
-                <Link href="/leaderboard">
-                  <Button className="w-full bg-orange-500 hover:bg-orange-600 text-black font-bold mt-4">
-                    View Leaderboard
-                  </Button>
-                </Link>
+                <Button asChild className="w-full bg-orange-500 hover:bg-orange-600 text-black font-bold mt-4">
+                  <Link href="/leaderboard">View Leaderboard</Link>
+                </Button>
 
-                <Link href="/profile">
-                  <Button variant="outline" className="w-full border-orange-500 text-orange-500 hover:bg-orange-500/10">
-                    Profile
-                  </Button>
-                </Link>
+                <Button asChild variant="outline" className="w-full border-orange-500 text-orange-500 hover:bg-orange-500/10">
+                  <Link href="/profile">Profile</Link>
+                </Button>
               </div>
             ) : null}
           </div>

@@ -53,12 +53,12 @@ export default function Profile() {
             </motion.div>
           </Link>
 
-          <Link href="/dashboard">
-            <Button variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-500/10">
+          <Button asChild variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-500/10">
+            <Link href="/dashboard">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Dashboard
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </motion.nav>
 
@@ -153,11 +153,9 @@ export default function Profile() {
             ) : (
               <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border border-orange-500/20 p-8 text-center">
                 <p className="text-gray-400">No game history yet</p>
-                <Link href="/game/picture">
-                  <Button className="mt-4 bg-orange-500 hover:bg-orange-600 text-black">
-                    Play Your First Game
-                  </Button>
-                </Link>
+                <Button asChild className="mt-4 bg-orange-500 hover:bg-orange-600 text-black">
+                  <Link href="/game/picture">Play Your First Game</Link>
+                </Button>
               </Card>
             )}
           </div>

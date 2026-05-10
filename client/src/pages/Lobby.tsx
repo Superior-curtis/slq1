@@ -68,18 +68,10 @@ export default function Lobby() {
             <span className="text-white">Guesser</span>
           </div>
           <div className="flex gap-4">
-            <Button
-              variant="outline"
-              className="border-orange-500 text-orange-500 hover:bg-orange-500/10"
-              onClick={() => navigate("/dashboard")}
-            >
+            <Button variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-500/10" onClick={() => navigate("/dashboard")}>
               Dashboard
             </Button>
-            <Button
-              variant="outline"
-              className="border-orange-500 text-orange-500 hover:bg-orange-500/10"
-              onClick={() => navigate("/leaderboard")}
-            >
+            <Button variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-500/10" onClick={() => navigate("/leaderboard")}>
               Leaderboard
             </Button>
           </div>

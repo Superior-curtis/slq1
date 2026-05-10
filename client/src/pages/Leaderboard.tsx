@@ -43,11 +43,9 @@ export default function Leaderboard() {
 
           <div className="flex items-center gap-4">
             {isAuthenticated && (
-              <Link href="/dashboard">
-                <Button variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-500/10">
-                  Back to Dashboard
-                </Button>
-              </Link>
+              <Button asChild variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-500/10">
+                <Link href="/dashboard">Back to Dashboard</Link>
+              </Button>
             )}
           </div>
         </div>

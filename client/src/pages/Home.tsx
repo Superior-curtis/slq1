@@ -51,38 +51,28 @@ export default function Home() {
                 <span className="text-sm text-gray-400">
                   Welcome, {user?.name}
                 </span>
-                <Link href="/lobby">
-                  <Button variant="ghost" className="text-orange-500 hover:bg-orange-500/10">
-                    Lobby
-                  </Button>
-                </Link>
-                <Link href="/leaderboard">
-                  <Button variant="ghost" className="text-orange-500 hover:bg-orange-500/10">
-                    Leaderboard
-                  </Button>
-                </Link>
-                <Link href="/profile">
-                  <Button variant="ghost" className="text-orange-500 hover:bg-orange-500/10">
-                    Profile
-                  </Button>
-                </Link>
-                <Link href="/notifications">
-                  <Button variant="ghost" className="text-orange-500 hover:bg-orange-500/10">
+                <Button asChild variant="ghost" className="text-orange-500 hover:bg-orange-500/10">
+                  <Link href="/lobby">Lobby</Link>
+                </Button>
+                <Button asChild variant="ghost" className="text-orange-500 hover:bg-orange-500/10">
+                  <Link href="/leaderboard">Leaderboard</Link>
+                </Button>
+                <Button asChild variant="ghost" className="text-orange-500 hover:bg-orange-500/10">
+                  <Link href="/profile">Profile</Link>
+                </Button>
+                <Button asChild variant="ghost" className="text-orange-500 hover:bg-orange-500/10">
+                  <Link href="/notifications">
                     <Bell className="w-4 h-4" />
-                  </Button>
-                </Link>
-                <Link href="/dashboard">
-                  <Button variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-500/10">
-                    Enter Game
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-500/10">
+                  <Link href="/dashboard">Enter Game</Link>
+                </Button>
               </>
             ) : (
-              <Link href="/login">
-                <Button className="bg-orange-500 hover:bg-orange-600 text-black font-bold">
-                  Login to Play
-                </Button>
-              </Link>
+              <Button asChild className="bg-orange-500 hover:bg-orange-600 text-black font-bold">
+                <Link href="/login">Login to Play</Link>
+              </Button>
             )}
           </div>
         </div>
@@ -151,29 +141,23 @@ export default function Home() {
           >
             {isAuthenticated ? (
               <>
-                <Link href="/game/picture">
-                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                    <Button className="bg-orange-500 hover:bg-orange-600 text-black font-bold px-8 py-6 text-lg">
-                      開始Picture Mode
-                    </Button>
-                  </motion.div>
-                </Link>
-                <Link href="/game/video">
-                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                    <Button variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-500/10 px-8 py-6 text-lg">
-                      開始Video Mode
-                    </Button>
-                  </motion.div>
-                </Link>
-              </>
-            ) : (
-              <Link href="/login">
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button className="bg-orange-500 hover:bg-orange-600 text-black font-bold px-8 py-6 text-lg">
-                    立即Login to Play
+                  <Button asChild className="bg-orange-500 hover:bg-orange-600 text-black font-bold px-8 py-6 text-lg">
+                    <Link href="/game/picture">開始Picture Mode</Link>
                   </Button>
                 </motion.div>
-              </Link>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button asChild variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-500/10 px-8 py-6 text-lg">
+                    <Link href="/game/video">開始Video Mode</Link>
+                  </Button>
+                </motion.div>
+              </>
+            ) : (
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button asChild className="bg-orange-500 hover:bg-orange-600 text-black font-bold px-8 py-6 text-lg">
+                  <Link href="/login">立即Login to Play</Link>
+                </Button>
+              </motion.div>
             )}
           </motion.div>
 

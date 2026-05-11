@@ -38,24 +38,21 @@ async function ensureDemoUserExists() {
   try {
     const db = await import("../db");
     const existing = await db.getUserByUsername("demo");
+    const passwordHash = createHash("sha256").update("demo123").digest("hex");
+    const openId = existing?.openId ?? `usr_demo_${randomUUID()}`;
 
-    if (!existing) {
-      const passwordHash = createHash("sha256").update("demo123").digest("hex");
-      const openId = `usr_demo_${randomUUID()}`;
+    await db.upsertUser({
+      openId,
+      username: "demo",
+      passwordHash,
+      name: "Demo User",
+      email: "demo@example.com",
+      loginMethod: "password",
+      role: "user",
+      lastSignedIn: new Date(),
+    });
 
-      await db.upsertUser({
-        openId,
-        username: "demo",
-        passwordHash,
-        name: "Demo User",
-        email: "demo@example.com",
-        loginMethod: "password",
-        role: "user",
-        lastSignedIn: new Date(),
-      });
-
-      console.log("[Setup] Demo user created successfully");
-    }
+    console.log(existing ? "[Setup] Demo user refreshed successfully" : "[Setup] Demo user created successfully");
   } catch (error) {
     console.error("[Setup] Failed to create demo user:", error);
   }

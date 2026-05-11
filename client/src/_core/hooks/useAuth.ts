@@ -35,14 +35,24 @@ export function useAuth(options?: UseAuthOptions) {
   });
 
   const loginMutation = trpc.auth.login.useMutation({
-    onSuccess: () => {
-      utils.auth.me.invalidate();
+    onSuccess: (data) => {
+      // Update local state immediately with response data
+      if (data.user) {
+        setZeroCardUser(data.user);
+        // Invalidate the me query to sync cache
+        utils.auth.me.invalidate();
+      }
     },
   });
 
   const registerMutation = trpc.auth.register.useMutation({
-    onSuccess: () => {
-      utils.auth.me.invalidate();
+    onSuccess: (data) => {
+      // Update local state immediately with response data
+      if (data.user) {
+        setZeroCardUser(data.user);
+        // Invalidate the me query to sync cache
+        utils.auth.me.invalidate();
+      }
     },
   });
 
@@ -64,7 +74,12 @@ export function useAuth(options?: UseAuthOptions) {
         };
       }
 
-      return loginMutation.mutateAsync({ username, password });
+      const result = await loginMutation.mutateAsync({ username, password });
+      // Store user in local state
+      if (result.user) {
+        setZeroCardUser(result.user);
+      }
+      return result;
     },
     [loginMutation]
   );
@@ -81,7 +96,12 @@ export function useAuth(options?: UseAuthOptions) {
         };
       }
 
-      return registerMutation.mutateAsync({ username, password, email });
+      const result = await registerMutation.mutateAsync({ username, password, email });
+      // Store user in local state
+      if (result.user) {
+        setZeroCardUser(result.user);
+      }
+      return result;
     },
     [registerMutation]
   );

@@ -48,7 +48,7 @@ export const appRouter = router({
 
         if (dbConn) {
           const users = await dbConn.execute(
-            "SELECT id, openId, passwordHash, name, email, username FROM users WHERE username = ? LIMIT 1",
+            "SELECT id, openId, passwordHash, name, email, username, role FROM users WHERE username = ? LIMIT 1",
             [input.username]
           );
 
@@ -77,7 +77,19 @@ export const appRouter = router({
         const cookieOptions = getSessionCookieOptions(ctx.req);
         ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
         
-        return { success: true, username: input.username };
+        // Return complete user info so frontend can update state immediately
+        return { 
+          success: true, 
+          user: {
+            id: user.id,
+            name: user.name || input.username,
+            email: user.email,
+            role: user.role || "user",
+            username: input.username,
+            openId: user.openId,
+          },
+          sessionToken 
+        };
       }),
     
     register: publicProcedure
@@ -133,7 +145,18 @@ export const appRouter = router({
           const cookieOptions = getSessionCookieOptions(ctx.req);
           ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
 
-          return { success: true, username: input.username };
+          return { 
+            success: true, 
+            user: {
+              id: userId,
+              name: input.username,
+              email: input.email || null,
+              role: "user",
+              username: input.username,
+              openId,
+            },
+            sessionToken 
+          };
         }
 
         await db.upsertUser({
@@ -154,7 +177,18 @@ export const appRouter = router({
         const cookieOptions = getSessionCookieOptions(ctx.req);
         ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
 
-        return { success: true, username: input.username };
+        return { 
+          success: true, 
+          user: {
+            id: 0, // Will be updated with real ID from DB
+            name: input.username,
+            email: input.email || null,
+            role: "user",
+            username: input.username,
+            openId,
+          },
+          sessionToken 
+        };
       }),
     
     logout: publicProcedure.mutation(({ ctx }) => {

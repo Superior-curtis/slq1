@@ -241,7 +241,7 @@ function getSessionUser(): ZeroCardUser | null {
   return user ?? null;
 }
 
-function setSessionUser(user: ZeroCardUser | null) {
+export function setSessionUser(user: ZeroCardUser | null) {
   writeJson(STORAGE_KEYS.session, user);
 }
 

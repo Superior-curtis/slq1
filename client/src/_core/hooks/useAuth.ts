@@ -1,6 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { firebaseLogin, firebaseLogout, firebaseRegister, isFirebaseEnabled, waitForFirebaseUser, type FirebaseSessionUser } from "@/lib/firebase";
-import { getZeroCardCurrentUser } from "@/lib/zeroCard";
+import { getZeroCardCurrentUser, setSessionUser } from "@/lib/zeroCard";
 import { TRPCClientError } from "@trpc/client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -39,6 +39,8 @@ export function useAuth(options?: UseAuthOptions) {
       // Update local state immediately with response data
       if (data.user) {
         setZeroCardUser(data.user);
+        // Persist to localStorage for page reload
+        setSessionUser(data.user as any);
         // Invalidate the me query to sync cache
         utils.auth.me.invalidate();
       }
@@ -50,6 +52,8 @@ export function useAuth(options?: UseAuthOptions) {
       // Update local state immediately with response data
       if (data.user) {
         setZeroCardUser(data.user);
+        // Persist to localStorage for page reload
+        setSessionUser(data.user as any);
         // Invalidate the me query to sync cache
         utils.auth.me.invalidate();
       }
@@ -75,9 +79,10 @@ export function useAuth(options?: UseAuthOptions) {
       }
 
       const result = await loginMutation.mutateAsync({ username, password });
-      // Store user in local state
+      // Store user in local state and persist to localStorage
       if (result.user) {
         setZeroCardUser(result.user);
+        setSessionUser(result.user as any);
       }
       return result;
     },
@@ -97,9 +102,10 @@ export function useAuth(options?: UseAuthOptions) {
       }
 
       const result = await registerMutation.mutateAsync({ username, password, email });
-      // Store user in local state
+      // Store user in local state and persist to localStorage
       if (result.user) {
         setZeroCardUser(result.user);
+        setSessionUser(result.user as any);
       }
       return result;
     },
@@ -125,6 +131,8 @@ export function useAuth(options?: UseAuthOptions) {
       throw error;
     } finally {
       setZeroCardUser(null);
+      // Clear session from localStorage
+      setSessionUser(null);
       utils.auth.me.setData(undefined, null);
       await utils.auth.me.invalidate();
     }

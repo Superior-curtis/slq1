@@ -21,6 +21,19 @@ import * as lobbySystem from "./lobbySystem";
 import * as gameLogic from "./gameLogic";
 import * as matchmakingSystem from "./matchmakingSystem";
 
+function buildVideoGuessAnswers(video: any): string[] {
+  const actorAnswers = Array.isArray(video?.actors)
+    ? video.actors.map((actor: string) => String(actor).trim()).filter(Boolean)
+    : [];
+
+  if (actorAnswers.length > 0) {
+    return actorAnswers;
+  }
+
+  const fallbackTitle = String(video?.title || "").split(" - ")[0].trim();
+  return fallbackTitle ? [fallbackTitle] : ["Unknown"];
+}
+
 export const appRouter = router({
   system: systemRouter,
 
@@ -191,6 +204,20 @@ export const appRouter = router({
         return room;
       }),
 
+    // Start game (for testing / manual start) - will fetch real content if needed
+    startGame: publicProcedure
+      .input(z.object({ roomId: z.string() }))
+      .mutation(async ({ input }) => {
+        try {
+          const mm = await import("./matchmaking");
+          const ok = await mm.startGameWithContent(input.roomId);
+          return { success: ok };
+        } catch (err) {
+          console.error("[Game] startGame RPC failed:", err);
+          return { success: false };
+        }
+      }),
+
     joinRoomByCode: protectedProcedure
       .input(z.object({ roomCode: z.string().min(4) }))
       .mutation(async ({ ctx, input }) => {
@@ -217,16 +244,58 @@ export const appRouter = router({
         })
       )
       .query(async ({ input }) => {
-        try {
-          const videos = input.category
-            ? await pornhubClient.getRandomVideos(input.category, 1)
-            : await pornhubClient.getRandomVideos(undefined, 1);
+        let video = null;
+        let attemptedCategories: string[] = [];
 
-          const video = videos[0];
+        try {
+          // Try requested category first
+          if (input.category) {
+            attemptedCategories.push(input.category);
+            const videos = await pornhubClient.getRandomVideos(input.category, 1);
+            video = videos[0];
+          }
+
+          // If no video found in requested category, try trending
+          if (!video) {
+            console.log(`[Game] No videos found for "${input.category}", trying trending...`);
+            attemptedCategories.push("trending");
+            const videos = await pornhubClient.getRandomVideos("trending", 3);
+            video = videos[0];
+          }
+
+          // If still no video, try any category (pick random from available)
+          if (!video) {
+            console.log(`[Game] No trending videos, trying random category...`);
+            const allCategories = await pornhubClient.getCategories();
+            const randomCat = allCategories[Math.floor(Math.random() * allCategories.length)];
+            if (randomCat && !attemptedCategories.includes(randomCat)) {
+              attemptedCategories.push(randomCat);
+              const videos = await pornhubClient.getRandomVideos(randomCat, 1);
+              video = videos[0];
+            }
+          }
+
+          // Last resort: try multiple fallback categories
+          if (!video) {
+            const fallbackCategories = ["amateur", "teen", "hd", "pov", "homemade"];
+            for (const fallback of fallbackCategories) {
+              if (!attemptedCategories.includes(fallback)) {
+                console.log(`[Game] Trying fallback category: ${fallback}`);
+                const videos = await pornhubClient.getRandomVideos(fallback, 1);
+                if (videos.length > 0) {
+                  video = videos[0];
+                  break;
+                }
+              }
+            }
+          }
+
           if (video) {
-            const answers = Array.isArray(video.actors) && video.actors.length > 0
-              ? video.actors
-              : [video.title?.split("-")[0]?.trim() || video.title || "Unknown"];
+            const answers = input.type === "video"
+              ? buildVideoGuessAnswers(video)
+              : Array.isArray(video.actors) && video.actors.length > 0
+                ? video.actors
+                : [video.title?.split("-")[0]?.trim() || video.title || "Unknown"];
             const categories = Array.isArray(video.categories) && video.categories.length > 0
               ? video.categories
               : input.category
@@ -259,12 +328,35 @@ export const appRouter = router({
               thumbnail: video.thumbnail || video.url,
             };
           }
+
+          console.error("[Game] No video found after all fallback attempts");
+          return {
+            id: `missing-${input.type}-${Date.now()}`,
+            type: input.type as const,
+            sourceId: "",
+            sourceUrl: "",
+            title: "Unavailable",
+            actors: [],
+            categories: input.category ? [input.category] : [],
+            correctAnswers: ["Unknown"],
+            thumbnail: "",
+          };
         } catch (error) {
           console.error("[Game] Pornhub API error:", error);
         }
 
-        // Fallback to local content manager
-        return contentManager.getRandomContent(input.type, input.category);
+        // Final fallback: return a safe placeholder instead of failing the round.
+        return {
+          id: `error-${input.type}-${Date.now()}`,
+          type: input.type as const,
+          sourceId: "",
+          sourceUrl: "",
+          title: "Unavailable",
+          actors: [],
+          categories: input.category ? [input.category] : [],
+          correctAnswers: ["Unknown"],
+          thumbnail: "",
+        };
       }),
 
     getCategories: publicProcedure.query(async () => {

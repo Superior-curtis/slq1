@@ -60,8 +60,8 @@ export function initializeSocketIO(server: HTTPServer): SocketIOServer {
     // Handle game start
     socket.on("gameStart", async () => {
       try {
-        const success = await startGameWithContent(roomId);
-        if (success) {
+        const result = await startGameWithContent(roomId);
+        if (result.success) {
           const room = await getGameRoomById(roomId);
           io.to(roomId).emit("gameStarted", {
             currentRound: room?.currentRound,
@@ -71,6 +71,8 @@ export function initializeSocketIO(server: HTTPServer): SocketIOServer {
               type: room?.gameMode,
             },
           });
+        } else {
+          socket.emit("error", { message: result.reason || "Failed to start game" });
         }
       } catch (error) {
         console.error("[Socket] Failed to start game:", error);

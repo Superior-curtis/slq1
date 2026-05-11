@@ -28,6 +28,32 @@ interface PornhubSearchResult {
   total: number;
 }
 
+const DISCOVER_VIDEO_CATEGORIES = [
+  "trending",
+  "discover videos",
+  "recommended",
+  "hottest",
+  "most viewed",
+  "top rated",
+  "popular homemade",
+  "shorties",
+  "playlists",
+  "channels",
+  "random",
+  "newest",
+  "viewers' choice",
+];
+
+function uniqueCategories(categories: string[]): string[] {
+  return Array.from(
+    new Set(
+      categories
+        .map((category) => category.trim().toLowerCase())
+        .filter((category) => category.length > 0)
+    )
+  );
+}
+
 /**
  * Search videos on Pornhub
  */
@@ -255,9 +281,10 @@ export async function getRandomPornhubVideoByCategory(category: string): Promise
  */
 export async function getPornhubCategories(): Promise<string[]> {
   try {
-    return await scraper.scrapeCategories();
+    const scrapedCategories = await scraper.scrapeCategories();
+    return uniqueCategories([...DISCOVER_VIDEO_CATEGORIES, ...scrapedCategories]);
   } catch (error) {
     console.error("[Pornhub API] Categories error:", error);
-    return [];
+    return uniqueCategories([...DISCOVER_VIDEO_CATEGORIES, "famous-actor", "pornstars"]);
   }
 }

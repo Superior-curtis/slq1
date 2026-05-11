@@ -11,6 +11,36 @@ import {
 } from "./gameLogic";
 import type { GameRoom } from "../drizzle/schema";
 
+type GameContent = {
+  id: string;
+  sourceUrl: string;
+  correctAnswers: string[];
+};
+
+async function fetchRealGameContent(): Promise<GameContent | null> {
+  try {
+    const pornhubClient = await import("./pornhubClient");
+
+    const fallbackCategories = [undefined, "trending", "amateur", "teen", "hd", "pov", "homemade"];
+    for (const category of fallbackCategories) {
+      const videos = await pornhubClient.getRandomVideos(category as string | undefined, 3);
+      const video = videos[0];
+      if (video) {
+        return {
+          id: video.id,
+          sourceUrl: video.url,
+          correctAnswers: Array.isArray(video.actors) && video.actors.length > 0 ? video.actors : [video.title],
+        };
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error("[Matchmaking] fetchRealGameContent failed:", error);
+    return null;
+  }
+}
+
 /**
  * Find or create a game room for random matchmaking
  */
@@ -54,15 +84,37 @@ export async function findOrCreateRandomRoom(
 /**
  * Start a game and set initial content
  */
-export async function startGameWithContent(roomId: string): Promise<boolean> {
+export async function startGameWithContent(roomId: string): Promise<{ success: boolean; reason?: string }> {
   try {
     const room = await getGameRoomById(roomId);
-    if (!room) return false;
-    
-    // Get random content for the game
-    const content = await getRandomContent(room.gameMode);
-    if (!content) return false;
-    
+    if (!room) {
+      console.error(`[Matchmaking] startGameWithContent: room not found: ${roomId}`);
+      return { success: false, reason: "room not found" };
+    }
+
+    let content = await getRandomContent(room.gameMode);
+    if (!content) {
+      const realContent = await fetchRealGameContent();
+      if (realContent) {
+        content = {
+          id: realContent.id,
+          type: room.gameMode,
+          sourceId: realContent.id,
+          sourceUrl: realContent.sourceUrl,
+          title: "Real Pornhub Content",
+          actors: realContent.correctAnswers,
+          categories: [],
+          correctAnswers: realContent.correctAnswers,
+          thumbnail: realContent.sourceUrl,
+        } as any;
+      }
+    }
+
+    if (!content) {
+      console.error(`[Matchmaking] startGameWithContent: no content available for room ${roomId}`);
+      return { success: false, reason: "no content available" };
+    }
+
     // Update room with content and start status
     await updateGameRoom(roomId, {
       status: 'active' as const,
@@ -74,11 +126,11 @@ export async function startGameWithContent(roomId: string): Promise<boolean> {
         correctAnswers: content.correctAnswers as string[]
       } as any
     });
-    
-    return true;
+
+    return { success: true };
   } catch (error) {
     console.error("[Matchmaking] Failed to start game with content:", error);
-    return false;
+    return { success: false, reason: error instanceof Error ? error.message : "unknown error" };
   }
 }
 
@@ -98,7 +150,23 @@ export async function advanceGameRound(roomId: string): Promise<boolean> {
     }
     
     // Get new content for next round
-    const content = await getRandomContent(room.gameMode);
+    let content = await getRandomContent(room.gameMode);
+    if (!content) {
+      const realContent = await fetchRealGameContent();
+      if (realContent) {
+        content = {
+          id: realContent.id,
+          type: room.gameMode,
+          sourceId: realContent.id,
+          sourceUrl: realContent.sourceUrl,
+          title: "Real Pornhub Content",
+          actors: realContent.correctAnswers,
+          categories: [],
+          correctAnswers: realContent.correctAnswers,
+          thumbnail: realContent.sourceUrl,
+        } as any;
+      }
+    }
     if (!content) return false;
     
     // Update room with new content and round

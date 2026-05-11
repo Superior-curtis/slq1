@@ -64,17 +64,61 @@ export async function scrapeCategories(): Promise<string[]> {
 
       const categories: Set<string> = new Set();
 
-      // 策略: 從category links的href提取 - Pornhub的主要分類列表
-      $("a[href*='/categories/']").each((_, el) => {
-        const href = $(el).attr("href");
-        
-        if (href && href.includes("/categories/")) {
-          const match = href.match(/\/categories\/([^/?#]+)/);
-          if (match) {
-            const cat = match[1].replace(/-/g, " ").toLowerCase().trim();
-            if (isValidCategory(cat)) {
-              categories.add(cat);
-            }
+      const categoryHrefMatchers: Array<{ match: RegExp; normalize: (href: string, text: string) => string | null }> = [
+        {
+          match: /\/categories\/([^/?#]+)/,
+          normalize: (href) => href.match(/\/categories\/([^/?#]+)/)?.[1] ?? null,
+        },
+        {
+          match: /\/video\?c=\d+/,
+          normalize: (_href, text) => text,
+        },
+        {
+          match: /\/video\/search\?search=/,
+          normalize: (_href, text) => text,
+        },
+        {
+          match: /\/(hd|vr|interactive|transgender|popularwithwomen|described-video|sfw|sex)$/,
+          normalize: (_href, text) => text,
+        },
+        {
+          match: /\/gay\/categories/,
+          normalize: (_href, text) => text,
+        },
+      ];
+
+      $("a[href]").each((_, el) => {
+        const href = $(el).attr("href") || "";
+        if (!href) return;
+
+        const rawText = $(el).text().replace(/\s+/g, " ").trim();
+        if (!rawText) return;
+
+        const matchedStrategy = categoryHrefMatchers.find((entry) => entry.match.test(href));
+        if (!matchedStrategy) return;
+
+        let normalized = matchedStrategy.normalize(href, rawText);
+        if (!normalized) return;
+
+        normalized = normalized
+          .replace(/\s*\d[\d,]*\s*Videos.*$/i, "")
+          .replace(/\s*Porn\s*Category.*$/i, "")
+          .replace(/\s*Category.*$/i, "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .toLowerCase();
+
+        const fromHref = href.match(/\/categories\/([^/?#]+)/)?.[1]?.replace(/-/g, " ").toLowerCase().trim();
+        const candidate = fromHref || normalized;
+
+        if (candidate) {
+          const cleaned = candidate
+            .replace(/porn$/i, "")
+            .replace(/\s+/g, " ")
+            .trim();
+
+          if (isValidCategory(cleaned)) {
+            categories.add(cleaned);
           }
         }
       });
@@ -84,7 +128,7 @@ export async function scrapeCategories(): Promise<string[]> {
         .filter((cat) => cat.length > 0)
         .filter((cat, idx, arr) => arr.indexOf(cat) === idx); // Remove duplicates
 
-      console.log(`[Pornhub Scraper] Extracted ${result.length} categories from href attributes`);
+      console.log(`[Pornhub Scraper] Extracted ${result.length} categories from categories page`);
       
       if (result.length === 0) {
         console.log("[Pornhub Scraper] No categories found from href, using fallback list");
@@ -277,15 +321,13 @@ export async function scrapeVideos(query: string, category?: string, count: numb
 export async function scrapeRandomVideos(category?: string, count: number = 5): Promise<PornhubVideo[]> {
   try {
     const normalizedCategory = category ? category.replace(/\s+/g, "-").toLowerCase() : null;
-    let url = "https://www.pornhub.com/videos";
-
-    if (normalizedCategory && normalizedCategory !== "all" && normalizedCategory !== "trending") {
-      url = `https://www.pornhub.com/categories/${normalizedCategory}`;
-    }
+    const url = "https://www.pornhub.com/video";
+    const params: Record<string, string> = {};
 
     console.log(`[Pornhub Scraper] Fetching random videos from: ${url}`);
 
     const response = await axiosInstance.get(url, {
+      params,
       timeout: 20000,
     });
     const $ = cheerio.load(response.data);
@@ -323,13 +365,17 @@ export async function scrapeRandomVideos(category?: string, count: number = 5): 
 
           if (!href) return true; // continue
 
-          // 提取視頻ID
+          // 提取視頻ID，避免使用隨機 fallback 產生不可嵌入的來源
           let videoId = "";
-          const viewkeyMatch = href.match(/viewkey=([a-z0-9]+)/i);
-          if (viewkeyMatch) {
+          const viewkeyMatch = href.match(/viewkey=([a-z0-9_-]+)/i);
+          if (viewkeyMatch?.[1]) {
             videoId = viewkeyMatch[1];
           } else {
-            videoId = $el.attr("data-video-id") || Math.random().toString(36).substring(2, 12);
+            const linkHref = $el.find("a[href*='viewkey=']").first().attr("href") || "";
+            const linkMatch = linkHref.match(/viewkey=([a-z0-9_-]+)/i);
+            if (linkMatch?.[1]) {
+              videoId = linkMatch[1];
+            }
           }
 
           if (!videoId) return true; // continue
@@ -383,8 +429,15 @@ export async function scrapeRandomVideos(category?: string, count: number = 5): 
           // 提取上傳日期
           const uploadDate = $el.find("[class*='date'], .date").text().trim() || new Date().toISOString();
 
-          // 提取演員名稱
-          const actors = extractActorsFromTitle(title);
+          // 優先從卡片上的 model/channel link 抽取可作答的名字，再退回標題解析
+          const linkTexts = $el
+            .find("a[href]")
+            .map((_, anchor) => $(anchor).text().replace(/\s+/g, " ").trim())
+            .get()
+            .filter((text) => text.length > 0);
+          const creatorName = linkTexts.find((text) => text !== title && text.length <= 60) || "";
+
+          const actors = creatorName ? [creatorName] : extractActorsFromTitle(title);
 
           // 只保存有效的視頻
           if (videoId && title && videoUrl) {

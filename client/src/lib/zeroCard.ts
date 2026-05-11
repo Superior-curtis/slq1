@@ -2,8 +2,20 @@ import superjson from "superjson";
 import { handleFirebasePath, isFirebaseSharedMode } from "./firebaseShared";
 
 export const BACKEND_URL =
-  import.meta.env.VITE_BACKEND_URL ||
-  (typeof window !== "undefined" ? window.location.origin : import.meta.env.PROD ? "https://slq1-production.up.railway.app" : "");
+  (() => {
+    const envBackend = (import.meta.env.VITE_BACKEND_URL || "").trim();
+    const isLocalBackend = /localhost|127\.0\.0\.1/i.test(envBackend);
+
+    if (typeof window !== "undefined") {
+      if (envBackend && !isLocalBackend) {
+        return envBackend.replace(/\/$/, "");
+      }
+
+      return window.location.origin;
+    }
+
+    return envBackend || (import.meta.env.PROD ? "https://slq1-production.up.railway.app" : "");
+  })();
 
 export const ZERO_CARD_MODE =
   import.meta.env.VITE_ZERO_CARD_MODE === "true";

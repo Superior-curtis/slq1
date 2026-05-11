@@ -14,6 +14,21 @@ interface PornhubVideo {
   categories: string[];
 }
 
+const DISCOVER_CATEGORY_ALIASES = new Map<string, string>([
+  ["discover videos", "trending"],
+  ["recommended", "trending"],
+  ["hottest", "trending"],
+  ["most viewed", "trending"],
+  ["top rated", "trending"],
+  ["popular homemade", "homemade"],
+  ["shorties", "trending"],
+  ["playlists", "trending"],
+  ["channels", "trending"],
+  ["random", "all"],
+  ["newest", "all"],
+  ["viewers' choice", "trending"],
+]);
+
 /**
  * 獲取所有分類
  */
@@ -60,14 +75,10 @@ export async function getVideoById(videoId: string): Promise<PornhubVideo | null
  */
 export async function getRandomVideos(category?: string, count: number = 5): Promise<PornhubVideo[]> {
   try {
-    const normalizedCategory = category?.trim().toLowerCase().replace(/\s+/g, "-") ?? "all";
+    const normalizedInput = category?.trim().toLowerCase().replace(/\s+/g, "-") ?? "all";
+    const normalizedCategory = DISCOVER_CATEGORY_ALIASES.get(normalizedInput.replace(/-/g, " ")) || normalizedInput;
 
     if (normalizedCategory === "all" || normalizedCategory === "trending") {
-      const trending = await pornhubApiWrapper.getTrendingPornhubVideos(Math.max(count * 2, 20));
-      if (trending.length > 0) {
-        return trending.sort(() => Math.random() - 0.5).slice(0, count) as unknown as PornhubVideo[];
-      }
-
       return await scraper.scrapeRandomVideos(undefined, count);
     }
 
@@ -89,7 +100,13 @@ export async function getRandomVideos(category?: string, count: number = 5): Pro
       return await scraper.scrapeRandomVideos(undefined, count);
     }
 
-    return await scraper.scrapeRandomVideos(category, count);
+    // Many site categories 404 or resolve to empty lists; use the generic video feed as the playable fallback.
+    const genericVideos = await scraper.scrapeRandomVideos(undefined, count);
+    if (genericVideos.length > 0) {
+      return genericVideos;
+    }
+
+    return await scraper.scrapeRandomVideos("trending", count);
   } catch (error) {
     console.error("[Pornhub Client] Failed to get random videos:", error);
     return [];

@@ -43,11 +43,11 @@ export function initializeSocketServer(httpServer: Server) {
     });
 
     // 加入遊戲房間
-    socket.on("joinGameRoom", (data: { roomId: string; userName?: string }, ack?: (res: any) => void) => {
+    socket.on("joinGameRoom", (data: { roomId: string; userName?: string; username?: string }, ack?: (res: any) => void) => {
       console.log(`[Socket.IO] joinGameRoom event from ${socket.id}:`, data);
       const { roomId } = data || {} as any;
       const userId = socket.id;
-      const userName = (data && data.userName) || `Player_${userId.slice(0, 6)}`;
+      const userName = (data && (data.userName || data.username)) || `Player_${userId.slice(0, 6)}`;
 
       // 創建或獲取房間
       if (!gameRooms.has(roomId)) {

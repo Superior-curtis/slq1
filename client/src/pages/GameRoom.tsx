@@ -87,10 +87,13 @@ export default function GameRoom(props: any = {}) {
   const playableCategories = Array.from(new Set(categories.map((category: string) => category.trim()).filter(Boolean)));
 
   useEffect(() => {
-    if (!selectedCategory && playableCategories.length > 0) {
-      const preferred = playableCategories.find((category: string) => category === "trending") ||
-        playableCategories.find((category: string) => category === "famous-actor") ||
-        playableCategories[0];
+    if (playableCategories.length === 0) return;
+
+    const preferred = playableCategories.find((category: string) => category === "trending") ||
+      playableCategories.find((category: string) => category === "discover videos") ||
+      playableCategories[0];
+
+    if (!selectedCategory || !playableCategories.includes(selectedCategory)) {
       setSelectedCategory(preferred);
     }
   }, [playableCategories, selectedCategory]);
@@ -137,11 +140,17 @@ export default function GameRoom(props: any = {}) {
 
     return directId;
   };
-  const correctAnswers = currentContent?.actors && currentContent.actors.length > 0
-    ? currentContent.actors
-    : currentContent?.correctAnswers && currentContent.correctAnswers.length > 0
-      ? currentContent.correctAnswers
-      : [currentContent?.title || "Unknown"];
+  const correctAnswers = gameMode === "video"
+    ? (currentContent?.actors && currentContent.actors.length > 0
+      ? currentContent.actors
+      : currentContent?.correctAnswers && currentContent.correctAnswers.length > 0
+        ? currentContent.correctAnswers
+        : ["Unknown"])
+    : currentContent?.actors && currentContent.actors.length > 0
+      ? currentContent.actors
+      : currentContent?.correctAnswers && currentContent.correctAnswers.length > 0
+        ? currentContent.correctAnswers
+        : [currentContent?.title || "Unknown"];
   const currentVideoId = getVideoEmbedId(currentContent);
   const isPlaceholderMedia = (url?: string) => {
     if (!url) return false;
@@ -490,10 +499,17 @@ export default function GameRoom(props: any = {}) {
 
           {gameStarted ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-              <Card className="p-4 bg-black/40 border border-orange-500/20">
-                <p className="text-xs text-orange-300 uppercase tracking-[0.2em]">Current Category</p>
-                <p className="text-lg font-semibold text-white">{selectedCategoryLabel}</p>
-              </Card>
+              {gameMode !== "video" ? (
+                <Card className="p-4 bg-black/40 border border-orange-500/20">
+                  <p className="text-xs text-orange-300 uppercase tracking-[0.2em]">Current Category</p>
+                  <p className="text-lg font-semibold text-white">{selectedCategoryLabel}</p>
+                </Card>
+              ) : (
+                <Card className="p-4 bg-black/40 border border-orange-500/20">
+                  <p className="text-xs text-orange-300 uppercase tracking-[0.2em]">Topic</p>
+                  <p className="text-lg font-semibold text-white">Hidden until the round ends</p>
+                </Card>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <Card className="p-4 bg-gradient-to-br from-red-500/20 to-red-500/5 border border-red-500/30 text-center">
@@ -574,7 +590,7 @@ export default function GameRoom(props: any = {}) {
               {!showAnswer ? (
                 <div className="flex gap-2">
                   <Input
-                    placeholder="Enter your answer (actor name or title)..."
+                    placeholder={gameMode === "video" ? "Enter actor name..." : "Enter your answer (actor name or title)..."}
                     value={answer}
                     onChange={(e) => setAnswer(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSubmitAnswer()}
@@ -590,7 +606,7 @@ export default function GameRoom(props: any = {}) {
                   <Card className={`p-6 ${isCorrect ? "bg-green-900/30 border-green-500/30" : "bg-red-900/30 border-red-500/30"}`}>
                     <p className="text-lg font-bold mb-2">{isCorrect ? "✅ Correct!" : "❌ Wrong"}</p>
                     <p className="text-sm">
-                      Correct Answer(s): <span className="font-bold text-orange-400">{correctAnswers.length > 0 ? correctAnswers.join(" / ") : "Unknown"}</span>
+                      {gameMode === "video" ? "Correct Actor(s):" : "Correct Answer(s):"} <span className="font-bold text-orange-400">{correctAnswers.length > 0 ? correctAnswers.join(" / ") : "Unknown"}</span>
                     </p>
                     <p className="text-sm mt-2">
                       Your answer: <span className="font-bold">{answer || "(No answer)"}</span>

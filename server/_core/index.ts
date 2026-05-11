@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import { createHash, randomUUID } from "crypto";
 import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
@@ -35,16 +36,12 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 
 async function ensureDemoUserExists() {
   try {
-    const db = require("../db");
+    const db = await import("../db");
     const existing = await db.getUserByUsername("demo");
 
     if (!existing) {
-      const crypto = require("crypto");
-      const passwordHash = crypto
-        .createHash("sha256")
-        .update("demo123")
-        .digest("hex");
-      const openId = `usr_demo_${crypto.randomUUID()}`;
+      const passwordHash = createHash("sha256").update("demo123").digest("hex");
+      const openId = `usr_demo_${randomUUID()}`;
 
       await db.upsertUser({
         openId,

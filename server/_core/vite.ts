@@ -5,6 +5,7 @@ import { nanoid } from "nanoid";
 import path from "path";
 
 export async function setupVite(app: Express, server: Server) {
+  const projectRoot = process.cwd();
   const [{ createServer: createViteServer }, { default: react }, { default: tailwindcss }, { jsxLocPlugin }, { vitePluginManusRuntime }] =
     await Promise.all([
       import("vite"),
@@ -26,14 +27,14 @@ export async function setupVite(app: Express, server: Server) {
     plugins,
     resolve: {
       alias: {
-        "@": path.resolve(import.meta.dirname, "../..", "client", "src"),
-        "@shared": path.resolve(import.meta.dirname, "../..", "shared"),
-        "@assets": path.resolve(import.meta.dirname, "../..", "attached_assets"),
+        "@": path.resolve(projectRoot, "client", "src"),
+        "@shared": path.resolve(projectRoot, "shared"),
+        "@assets": path.resolve(projectRoot, "attached_assets"),
       },
     },
-    envDir: path.resolve(import.meta.dirname, "../.."),
-    root: path.resolve(import.meta.dirname, "../..", "client"),
-    publicDir: path.resolve(import.meta.dirname, "../..", "client", "public"),
+    envDir: projectRoot,
+    root: path.resolve(projectRoot, "client"),
+    publicDir: path.resolve(projectRoot, "client", "public"),
     configFile: false,
     server: serverOptions,
     appType: "custom",
@@ -44,12 +45,7 @@ export async function setupVite(app: Express, server: Server) {
     const url = req.originalUrl;
 
     try {
-      const clientTemplate = path.resolve(
-        import.meta.dirname,
-        "../..",
-        "client",
-        "index.html"
-      );
+      const clientTemplate = path.resolve(projectRoot, "client", "index.html");
 
       // always reload the index.html file from disk incase it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");

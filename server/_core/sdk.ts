@@ -155,8 +155,16 @@ class SDKServer {
   }
 
   private getSessionSecret() {
-    const secret = ENV.cookieSecret;
-    return new TextEncoder().encode(secret);
+    const secret = ENV.cookieSecret?.trim();
+    const fallbackSecret = `porn_guesser_session_secret:${ENV.appId || "local"}`;
+
+    if (!secret) {
+      console.warn(
+        "[Auth] JWT_SECRET is missing or empty; using a fallback session secret. Set JWT_SECRET to a non-empty value in production."
+      );
+    }
+
+    return new TextEncoder().encode(secret || fallbackSecret);
   }
 
   /**

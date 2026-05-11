@@ -1,4 +1,5 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
+import { getAuth, type Auth } from "firebase/auth";
 import { doc, getFirestore, type Firestore } from "firebase/firestore";
 import { upsertUserProfile } from "./firebaseShared";
 
@@ -11,12 +12,7 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-export const isFirebaseEnabled = Boolean(
-  firebaseConfig.apiKey &&
-    firebaseConfig.authDomain &&
-    firebaseConfig.projectId &&
-    firebaseConfig.appId
-);
+export const isFirebaseEnabled = false;
 
 export type FirebaseSessionUser = {
   uid: string;
@@ -39,7 +35,8 @@ export function getFirebaseApp() {
 }
 
 export function getFirebaseAuth(): Auth | null {
-  return null;
+  const app = getFirebaseApp();
+  return app ? getAuth(app) : null;
 }
 
 export function getFirebaseDb(): Firestore | null {

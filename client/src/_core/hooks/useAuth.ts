@@ -41,6 +41,10 @@ export function useAuth(options?: UseAuthOptions) {
         setZeroCardUser(data.user);
         // Persist to localStorage for page reload
         setSessionUser(data.user as any);
+        // Store session token for API authentication
+        if (data.sessionToken) {
+          localStorage.setItem('porn_guesser_session_token', data.sessionToken);
+        }
         // Invalidate the me query to sync cache
         utils.auth.me.invalidate();
       }
@@ -54,6 +58,10 @@ export function useAuth(options?: UseAuthOptions) {
         setZeroCardUser(data.user);
         // Persist to localStorage for page reload
         setSessionUser(data.user as any);
+        // Store session token for API authentication
+        if (data.sessionToken) {
+          localStorage.setItem('porn_guesser_session_token', data.sessionToken);
+        }
         // Invalidate the me query to sync cache
         utils.auth.me.invalidate();
       }
@@ -133,6 +141,8 @@ export function useAuth(options?: UseAuthOptions) {
       setZeroCardUser(null);
       // Clear session from localStorage
       setSessionUser(null);
+      // Clear session token
+      localStorage.removeItem('porn_guesser_session_token');
       utils.auth.me.setData(undefined, null);
       await utils.auth.me.invalidate();
     }

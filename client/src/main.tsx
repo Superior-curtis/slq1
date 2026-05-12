@@ -55,9 +55,19 @@ const trpcClient = trpc.createClient({
           return zeroCardFetch(input, init);
         }
 
+        // Get session token from localStorage if available
+        const sessionToken = localStorage.getItem('porn_guesser_session_token');
+        const headers = new Headers(init?.headers || {});
+        
+        // Add Authorization bearer token if available
+        if (sessionToken) {
+          headers.set('Authorization', `Bearer ${sessionToken}`);
+        }
+
         return globalThis.fetch(input, {
           ...(init ?? {}),
           credentials: "include",
+          headers,
         });
       },
     }),

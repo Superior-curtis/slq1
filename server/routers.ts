@@ -22,16 +22,31 @@ import * as gameLogic from "./gameLogic";
 import * as matchmakingSystem from "./matchmakingSystem";
 
 function buildVideoGuessAnswers(video: any): string[] {
+  // Filter out invalid actors (timestamps, empty strings, very short strings)
   const actorAnswers = Array.isArray(video?.actors)
-    ? video.actors.map((actor: string) => String(actor).trim()).filter(Boolean)
+    ? video.actors
+        .map((actor: string) => String(actor).trim())
+        .filter((actor: string) => {
+          // Reject if empty
+          if (!actor || actor.length === 0) return false;
+          // Reject if looks like a timestamp (only numbers and colons, or looks like epoch)
+          if (/^\d+$/.test(actor) && actor.length > 8) return false;
+          if (/^[\d:]+$/.test(actor)) return false;
+          // Reject if too long (likely malformed)
+          if (actor.length > 100) return false;
+          // Reject if contains only special characters
+          if (!/[a-zA-Z0-9\s]/.test(actor)) return false;
+          return true;
+        })
     : [];
 
   if (actorAnswers.length > 0) {
     return actorAnswers;
   }
 
+  // Fallback to title
   const fallbackTitle = String(video?.title || "").split(" - ")[0].trim();
-  return fallbackTitle ? [fallbackTitle] : ["Unknown"];
+  return fallbackTitle && fallbackTitle.length > 0 && fallbackTitle.length <= 100 ? [fallbackTitle] : ["Unknown"];
 }
 
 export const appRouter = router({
@@ -423,6 +438,8 @@ export const appRouter = router({
         return {
           isCorrect,
           score,
+          currentContent: room?.currentContent || null,
+          correctAnswers: correctAnswers,
         };
       }),
 

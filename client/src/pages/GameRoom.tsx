@@ -43,6 +43,7 @@ export default function GameRoom(props: any = {}) {
   const [copied, setCopied] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [submittedContent, setSubmittedContent] = useState<any>(null);
   const startEmittedRoomIdRef = useRef<string | null>(null);
 
   const { isConnected, chatMessages, players, sendChatMessage, startGame, socket } = useGameSocket(
@@ -228,6 +229,7 @@ export default function GameRoom(props: any = {}) {
         onSuccess: (data) => {
           setIsCorrect(data.isCorrect);
           setScore((prev) => prev + data.score);
+          setSubmittedContent(data.currentContent);
           setShowAnswer(true);
 
           if (data.isCorrect) {
@@ -250,6 +252,7 @@ export default function GameRoom(props: any = {}) {
     setShowAnswer(false);
     setAnswer("");
     setIsCorrect(null);
+    setSubmittedContent(null);
     setGameStartTime(Date.now());
     setContentVersion((prev) => prev + 1);
   };
@@ -345,7 +348,7 @@ export default function GameRoom(props: any = {}) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const duelReadyToStart = gameType !== "duel" || !roomCode || players.length >= 2;
+  const duelReadyToStart = gameType !== "duel" || !roomCode || players.length === 2;
 
   if (!isAuthenticated) {
     return (
@@ -615,6 +618,25 @@ export default function GameRoom(props: any = {}) {
                       Response time: <span className="font-bold">{(responseTime / 1000).toFixed(1)}s</span>
                     </p>
                   </Card>
+
+                  {submittedContent && (
+                    <Card className="p-4 bg-blue-900/20 border border-blue-500/30">
+                      <p className="text-sm text-blue-300 mb-2">Video Details:</p>
+                      <p className="text-xs text-blue-200 mb-2">Title: {submittedContent.title}</p>
+                      {submittedContent.sourceUrl && (
+                        <div className="mt-2">
+                          <a
+                            href={submittedContent.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-400 hover:text-blue-300 underline break-all"
+                          >
+                            View on Pornhub →
+                          </a>
+                        </div>
+                      )}
+                    </Card>
+                  )}
 
                   <div className="flex gap-2">
                     <Button

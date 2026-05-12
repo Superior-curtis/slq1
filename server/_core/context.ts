@@ -16,6 +16,14 @@ export async function createContext(
   try {
     user = await sdk.authenticateRequest(opts.req);
   } catch (error) {
+    // Debug: log authentication errors
+    const authHeader = opts.req.headers.authorization;
+    console.log("[Auth Debug] Auth failed", {
+      hasAuthHeader: !!authHeader,
+      origin: opts.req.headers.origin,
+      path: opts.req.path,
+      error: error instanceof Error ? error.message : String(error),
+    });
     // Authentication is optional for public procedures.
     user = null;
   }

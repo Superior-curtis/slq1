@@ -5,16 +5,22 @@ export const BACKEND_URL =
   (() => {
     const envBackend = (import.meta.env.VITE_BACKEND_URL || "").trim();
     const isLocalBackend = /localhost|127\.0\.0\.1/i.test(envBackend);
+    const productionFallback = "https://slq1-production.up.railway.app";
 
     if (typeof window !== "undefined") {
       if (envBackend && !isLocalBackend) {
         return envBackend.replace(/\/$/, "");
       }
 
+      // In production, default to Railway backend instead of the Vercel host.
+      if (import.meta.env.PROD) {
+        return productionFallback;
+      }
+
       return window.location.origin;
     }
 
-    return envBackend || (import.meta.env.PROD ? "https://slq1-production.up.railway.app" : "");
+    return envBackend || (import.meta.env.PROD ? productionFallback : "");
   })();
 
 export const ZERO_CARD_MODE =

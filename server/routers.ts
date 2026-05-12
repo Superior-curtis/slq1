@@ -422,18 +422,32 @@ export const appRouter = router({
       )
       .mutation(async ({ ctx, input }) => {
         const room = await db.getGameRoomById(input.roomId);
-        const correctAnswers = Array.isArray(room?.currentContent?.correctAnswers) ? room.currentContent.correctAnswers : [];
+        const rawAnswers = Array.isArray(room?.currentContent?.correctAnswers)
+          ? room.currentContent.correctAnswers
+          : [];
 
-        if (correctAnswers.length === 0) {
-          throw new Error("Game content is not ready yet");
-        }
+        // Keep answer validation usable even when source data is incomplete.
+        const normalizeAnswer = (value: unknown) => String(value ?? "").trim();
+        const filteredAnswers = rawAnswers
+          .map(normalizeAnswer)
+          .filter(answer => {
+            if (!answer) return false;
+            if (/^[\d:]+$/.test(answer)) return false;
+            if (/^\d+$/.test(answer) && answer.length > 8) return false;
+            if (answer.length > 100) return false;
+            return /[a-zA-Z0-9\u4e00-\u9fff]/.test(answer);
+          });
+
+        const fallbackAnswers = buildVideoGuessAnswers(room?.currentContent || {});
+        const correctAnswers = filteredAnswers.length > 0 ? filteredAnswers : fallbackAnswers;
 
         // Validate answer using LLM
         const isCorrect = await gameLogic.validateAnswerWithLLM(input.answer, correctAnswers);
         const score = gameLogic.calculateScore(input.responseTime, isCorrect);
 
         // Update player score
-        await gameLogic.updatePlayerScore(input.roomId, ctx.user.id, score);
+        const playerId = ctx.user?.id ?? 0;
+        await gameLogic.updatePlayerScore(input.roomId, playerId, score);
 
         return {
           isCorrect,

@@ -44,6 +44,7 @@ export default function GameRoom(props: any = {}) {
   const [chatInput, setChatInput] = useState("");
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [submittedContent, setSubmittedContent] = useState<any>(null);
+  const [submittedAnswers, setSubmittedAnswers] = useState<string[]>([]);
   const startEmittedRoomIdRef = useRef<string | null>(null);
 
   const { isConnected, chatMessages, players, sendChatMessage, startGame, socket } = useGameSocket(
@@ -141,17 +142,29 @@ export default function GameRoom(props: any = {}) {
 
     return directId;
   };
-  const correctAnswers = gameMode === "video"
-    ? (currentContent?.actors && currentContent.actors.length > 0
-      ? currentContent.actors
-      : currentContent?.correctAnswers && currentContent.correctAnswers.length > 0
-        ? currentContent.correctAnswers
-        : ["Unknown"])
-    : currentContent?.actors && currentContent.actors.length > 0
-      ? currentContent.actors
-      : currentContent?.correctAnswers && currentContent.correctAnswers.length > 0
-        ? currentContent.correctAnswers
-        : [currentContent?.title || "Unknown"];
+  const sanitizeAnswers = (answers: unknown[]): string[] =>
+    answers
+      .map((value) => String(value ?? "").trim())
+      .filter((value) => {
+        if (!value) return false;
+        if (/^[\d:]+$/.test(value)) return false;
+        if (/^\d+$/.test(value) && value.length > 8) return false;
+        return true;
+      });
+
+  const contentActors = Array.isArray(currentContent?.actors) ? sanitizeAnswers(currentContent.actors) : [];
+  const contentCorrectAnswers = Array.isArray(currentContent?.correctAnswers)
+    ? sanitizeAnswers(currentContent.correctAnswers)
+    : [];
+  const fallbackAnswers = gameMode === "video" ? ["Unknown"] : [currentContent?.title || "Unknown"];
+
+  const correctAnswers = submittedAnswers.length > 0
+    ? submittedAnswers
+    : contentActors.length > 0
+      ? contentActors
+      : contentCorrectAnswers.length > 0
+        ? contentCorrectAnswers
+        : fallbackAnswers;
   const currentVideoId = getVideoEmbedId(currentContent);
   const isPlaceholderMedia = (url?: string) => {
     if (!url) return false;
@@ -230,6 +243,7 @@ export default function GameRoom(props: any = {}) {
           setIsCorrect(data.isCorrect);
           setScore((prev) => prev + data.score);
           setSubmittedContent(data.currentContent);
+          setSubmittedAnswers(Array.isArray(data.correctAnswers) ? sanitizeAnswers(data.correctAnswers) : []);
           setShowAnswer(true);
 
           if (data.isCorrect) {
@@ -253,6 +267,7 @@ export default function GameRoom(props: any = {}) {
     setAnswer("");
     setIsCorrect(null);
     setSubmittedContent(null);
+    setSubmittedAnswers([]);
     setGameStartTime(Date.now());
     setContentVersion((prev) => prev + 1);
   };

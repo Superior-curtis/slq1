@@ -46,7 +46,10 @@ function buildVideoGuessAnswers(video: any): string[] {
 
   // Fallback to title
   const fallbackTitle = String(video?.title || "").split(" - ")[0].trim();
-  return fallbackTitle && fallbackTitle.length > 0 && fallbackTitle.length <= 100 ? [fallbackTitle] : ["Unknown"];
+  const fallbackLooksLikeTimestamp = /^[\d:]+$/.test(fallbackTitle);
+  return fallbackTitle && fallbackTitle.length > 0 && fallbackTitle.length <= 100 && !fallbackLooksLikeTimestamp
+    ? [fallbackTitle]
+    : ["Unknown"];
 }
 
 export const appRouter = router({
